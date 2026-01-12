@@ -294,67 +294,6 @@ def write_tcl_representation_script(helices):
 
             f.write(' \n')
 
-# for a MD averaged origami replacing the second last bp of each helix so the eqlb energy of the last bp is minimized
-def write_mutation_information(helices):
-    with open('Mutate/mutation_information.txt', 'w') as f:
-        for helix in helices:
-
-            possible_bps = [['A','T'],['T','A'],['C','G'],['G','C']]
-
-            energy_sums_with_mutation = []
-            bp_to_change = 1 # random.randint(1, len(helix['strand_sequences'][0])-2)
-            
-            placeholder_seq = list(helix['strand_sequences'][0])
-            placeholder_seq[1] = '-'
-            possible_mutated_sequences = get_all_possible_sequences(placeholder_seq)
-            for seq in possible_mutated_sequences:
-                offset_mutation = calculate_displacement_energy2(helix, seq)
-                energy_sums_bp = [sum(i) for i in offset_mutation['bp']]
-                energy_sums_step = [(sum(offset_mutation['step'][i]) + sum(offset_mutation['heli'][i])) for i in range(len(offset_mutation['step']))]
-                energy_sums_with_mutation.append(energy_sums_bp[0] + energy_sums_step[0])
-                # print( seq + " " + str(energy_sums_bp[0] + energy_sums_step[0]))
-            #print(str(energy_sums_with_mutation) + "   " + helix['strand_sequences'][0][bp_to_change] + "-" + helix['strand_sequences'][1][bp_to_change])
-            # print(helix['strand_sequences'][0])
-            new_bp = possible_bps[energy_sums_with_mutation.index(min(energy_sums_with_mutation))] # [energy_sums_with_mutation.index(min(energy_sums_with_mutation))]
-            
-            old_bp = [helix['strand_sequences'][0][1],helix['strand_sequences'][1][1]]
-
-            if new_bp == old_bp:
-                return
-            # for new_bp in possible_bps:
-                # mutated_helix = copy.deepcopy(helix)
-                # new_sequenceFow = list(copy.copy(mutated_helix['strand_sequences'][0]))
-                # new_sequenceBac = list(copy.copy(mutated_helix['strand_sequences'][1]))
-                # new_sequenceFow[bp_to_change] = new_bp[0]
-                # new_sequenceBac[bp_to_change] = new_bp[1]
-                # mutated_helix['strand_sequences'] = ["".join(new_sequenceFow) , "".join(new_sequenceBac)]
-                # mutated_helix['energys'] = calculate_displacement_energy(mutated_helix)
-                # energy_sums_bp = [sum(i) for i in mutated_helix['energys']['bp']]
-                # energy_sums_step = [(sum(mutated_helix['energys']['step'][i]) + sum(mutated_helix['energys']['heli'][i])) for i in range(len(mutated_helix['energys']['step']))]
-                # energy_sums_with_mutation.append(sum(energy_sums_bp) + sum(energy_sums_step))
-            
-            #print(str(energy_sums_with_mutation) + "   " + helix['strand_sequences'][0][bp_to_change] + "-" + helix['strand_sequences'][1][bp_to_change])
- 
- 
- 
- 
- 
-
-            # die bisherige sequenz ist immer am nächsten am equilibrium mit der bisherigen sequenz :/
- 
- 
- 
- 
- 
- 
-            # energy_sums_bp[0] = 0
-            # energy_sums_bp[-1] = 0
-            # print(str(helix['strand_sequences'][0]) + "  :  Etot = " + str(sum(energy_sums_bp)))
-            # bp_to_change = [helix['strand_res_inds'][i][energy_sums_bp.index(max(energy_sums_bp))]+1 for i in range(2)]
-            # new_bp_names = possible_bps[random.randint(0,3)]
-            
-            f.write(str(helix['strand_res_inds'][0][bp_to_change]) + " " + new_bp[0] + '\n')
-            f.write(str(helix['strand_res_inds'][1][bp_to_change]) + " " + new_bp[1] + '\n')
 
 def find_energy_minimum_sequence(helices):
     complements = {

@@ -104,6 +104,7 @@ def could_be_binded(atom1, atom2):
     if(not ALLOW_ONE_STRAND_HELIX and atom1['chain_ind'] == atom2['chain_ind'] ):
         return False
     
+    
     if ( atom1['res_ind'] == 90 or atom2['res_ind'] == 163 ):
         print("debugging")
     print(getDistance(atom1, atom2))
