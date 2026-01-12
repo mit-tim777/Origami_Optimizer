@@ -1,0 +1,38 @@
+#!/bin/bash -l
+
+topo_file="input.prmtop"
+
+inp_cords="input.inpcrd"
+
+
+
+
+export CUDA_VISIBLE_DEVICES=0
+
+echo "  starting 1min"
+
+/home/t38guest/amber22/bin/pmemd -O -i simulation_parameters/1min.in -o out/1min.out -p "$topo_file" -c "$inp_cords" -r restart_files/1min.rst7 -inf info/1min.info -ref "$inp_cords" -x trajectorys/mdcrd.1min
+
+echo "  starting heat"
+
+/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/2mdheat.in -o out/2mdheat.out -p "$topo_file" -c restart_files/1min.rst7 -r restart_files/2mdheat.rst7 -inf info/2mdheat.info -ref restart_files/1min.rst7 -x trajectorys/mdcrd.2mdheat
+
+echo "  starting reduce volume"
+
+for i in {1..20}; do
+    echo $i
+    /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/3md.in -o out/3md$i.out -p "$topo_file" -c restart_files/2mdheat.rst7 -r restart_files/3md.rst7 -inf info/3md$i.info -ref restart_files/2mdheat.rst7 -x trajectorys/mdcrd.3md$i
+
+    /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/3md.in -o out/3md{$i}_.out -p "$topo_file" -c restart_files/3md.rst7 -r restart_files/2mdheat.rst7 -inf info/3md{$i}_.info -ref restart_files/3md.rst7 -x trajectorys/mdcrd.3md{$i}_
+done
+
+echo "  starting 3,5min"
+
+/home/t38guest/amber22/bin/pmemd -O -i simulation_parameters/4min.in -o out/4min.out -p "$topo_file" -c restart_files/3md.rst7 -r restart_files/4min.rst7 -inf info/4min.info -ref restart_files/3md.rst7 -x trajectorys/mdcrd.4min
+
+
+echo "  starting sim"
+
+/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/4md.in -o out/4md.out -p "$topo_file" -c restart_files/3md.rst7 -r restart_files/4md.rst7 -inf info/4md.info -ref restart_files/3md.rst7 -x trajectorys/mdcrd.4md
+
+

@@ -1,0 +1,35 @@
+parm output.pdb
+trajin output.pdb
+
+nastruct data specifiedbp pairs $range_i hbcut 100.0 origincut 100.0 zcut 100.0 zanglecut 180
+go
+
+avg data[shear] name shear
+avg data[stretch] name stretch
+avg data[stagger] name stagger
+avg data[buckle] name buckle
+avg data[prop] name prop
+avg data[open] name open
+
+avg data[shift] name shift
+avg data[slide] name slide
+avg data[rise] name  rise
+avg data[tilt] name  tilt
+avg data[roll] name  roll
+avg data[twist] name twist
+
+avg data[xdisp] name xdisp
+avg data[ydisp] name ydisp
+avg data[hrise] name hrise
+avg data[incl] name incl
+avg data[tip] name tip
+avg data[htwist] name htwist
+ 
+
+go
+
+
+write Offset_energy_calculator/MD_Results/MD_averaged_parameters_of_helix_$ind.dat shear[avg] stretch[avg] stagger[avg] buckle[avg] prop[avg] open[avg] shift[avg] slide[avg] rise[avg] tilt[avg] roll[avg] twist[avg] xdisp[avg] ydisp[avg] hrise[avg] incl[avg] tip[avg] htwist[avg] 
+
+
+go

@@ -1,0 +1,6 @@
+parm $PDBFILE.pdb
+trajin $PDBFILE.pdb
+strip :Na+
+strip :WAT
+trajout no_water.pdb PDB
+go

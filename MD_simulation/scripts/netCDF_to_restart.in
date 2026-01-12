@@ -1,0 +1,4 @@
+parm MD_simulation/input.prmtop
+trajin MD_simulation/restart_files/gc8.rst7
+
+trajout end.rst7 restart

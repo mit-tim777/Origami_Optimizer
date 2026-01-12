@@ -1,0 +1,13 @@
+molecular dynamics long time run (PME, restart)
+ &cntrl
+    imin=0,irest=1, ntx=5,
+     dielc=1.0, cut=8.5,
+    ntt=1, temp0=200.0, tautp=0.1,
+    ntp=1, taup=0.1, 
+    ntb=2, ntc=2, ntf=2,iwrap=0,
+    ntwx = 1000,
+    nstlim=25000, dt=0.002,
+    ntr=1,restraint_wt=12.0,restraintmask='(:1-174 & !@H=)',
+    ntpr=500,
+ &end
+eof
