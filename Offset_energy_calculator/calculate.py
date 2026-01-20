@@ -264,6 +264,12 @@ def write_tcl_representation_script(helices):   # the display_energys.tcl file c
 
             f.write(' \n')
 
+def sum_all_offset_energys(offset_energys):  
+    energy_sums_bp = [sum(i) for i in offset_energys['bp']]
+    energy_sums_step = [(sum(offset_energys['step'][i]) + sum(offset_energys['heli'][i])) for i in range(len(offset_energys['step']))]
+    offset_energys = energy_sums_bp[0] + energy_sums_step[0]
+    return offset_energys
+
 def find_energy_minimum_sequence(helices):  # for each helix and assuming the same average helix parameters as with old sequence find the sequence with minimal offset energy and write new seuence to mutation information
     complements = {
         'A' : 'T', 'T' : 'A', 'C' : 'G', 'G' : 'C'
@@ -275,17 +281,15 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
             
             for seq in possible_new_sequences:   # make sure that sequences have certain ATGC content
                 A_n, T_n, C_n, G_n = seq.count('A'), seq.count('T'), seq.count('C'), seq.count('G')
-                if(A_n == 0 or T_n == 0 or C_n == 0 or G_n == 0):
-                    possible_new_sequences.remove(seq)                
+                old_A_n, old_T_n, old_C_n, old_G_n = helix['strand_sequences'][0].count('A'), helix['strand_sequences'][0].count('T'), helix['strand_sequences'][0].count('C'), helix['strand_sequences'][0].count('G')
+                if(A_n + T_n < old_A_n + old_T_n -1 or A_n + T_n > old_A_n + old_T_n +1):
+                    possible_new_sequences.remove(seq)
 
             for seq in possible_new_sequences:
-                offset_mutation = calculate_displacement_energy2(helix, seq)
-                energy_sums_bp = [sum(i) for i in offset_mutation['bp']]
-                energy_sums_step = [(sum(offset_mutation['step'][i]) + sum(offset_mutation['heli'][i])) for i in range(len(offset_mutation['step']))]
-                offset_energys_for_all_possible_sequences.append(energy_sums_bp[0] + energy_sums_step[0])
+                offset_energys_for_all_possible_sequences.append(sum_all_offset_energys(calculate_displacement_energy2(helix, seq)))
 
-            new_seq = possible_new_sequences[offset_energys_for_all_possible_sequences.index(min(offset_energys_for_all_possible_sequencese))] # [offset_energys_for_all_possible_sequences.index(min(offset_energys_for_all_possible_sequencese))]
-            old_Energy = offset_energys_for_all_possible_sequences[possible_new_sequences.index(helix['strand_sequences'][0])]
+            new_seq = possible_new_sequences[offset_energys_for_all_possible_sequences.index(min(offset_energys_for_all_possible_sequences))] 
+            old_Energy = sum_all_offset_energys(calculate_displacement_energy(helix))
             new_Energy = offset_energys_for_all_possible_sequences[possible_new_sequences.index(new_seq)]
             
             for i, newRes in enumerate(new_seq):    # print to mutation information file in format <residue index> <new resname>
@@ -340,7 +344,7 @@ if __name__ == "__main__":
 
     # sort out hexamers that are next to a transition of a strand to another helix
     hexamers_next_to_transition = []
-    hexamer_len = 6
+    hexamer_len = 5
 
     for helix in helices:       
         starting_hexamer = get_helix_snippet(helix, 0, hexamer_len)

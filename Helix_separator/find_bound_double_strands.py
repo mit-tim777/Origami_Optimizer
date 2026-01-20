@@ -227,7 +227,7 @@ def atom_is_in_helix(atom, helix):
     else:
         return False
 
-def match_chains(chains):   # goes through all residues and constucts helices 
+def match_chains(chains):   # goes through all residues and constructs helices 
     helices = []
 
     for chain in chains:

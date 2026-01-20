@@ -1,0 +1,56 @@
+ iteration 0 -----------------------------------------------------------------------------------------
+loading pdb into amber file format
+starting MD simulation
+  starting min
+  starting heat 2
+  starting heat 3
+  starting heat 4
+  starting heat 5
+  starting heat 6
+  starting heat 7
+  starting heat 8
+create cleaned pdb from amber files
+analyze input pdb for individual helices in origami structure
+calculating average helical parameters from trajectory
+comparing simulation data to equilibrium coordinates
+total Energy of Structure: 614.3736969380479
+TTTTT E=5.013641747896418 < old  |  new > GTAAA E=2.5243633009547843
+TCTGC E=2.291942485110445 < old  |  new > TCCCA E=1.8928729081564866
+CATGG E=5.292101614539554 < old  |  new > CAACA E=3.4071592207224297
+TGGTT E=2.902297336590205 < old  |  new > TAGGA E=1.8599610085527085
+CGGTG E=24.902881967708538 < old  |  new > CATTT E=20.579923448623706
+CAACC E=2.556590221620234 < old  |  new > TACGA E=0.8718331665055363
+ACCAA E=2.5740155876924096 < old  |  new > ACTCA E=2.1925896979202797
+CAACT E=8.68139175517734 < old  |  new > TAAGA E=6.199819289903045
+TCCCG E=1.4043951261054823 < old  |  new > TATGT E=0.7384617854295155
+CCGTC E=3.287533714259181 < old  |  new > CGACA E=1.7964340388496858
+CGACG E=25.01342751706845 < old  |  new > TAAAT E=17.87178799982822
+GGTTA E=3.495485935137647 < old  |  new > TACGA E=1.4969765372233486
+ iteration 1 -----------------------------------------------------------------------------------------
+loading pdb into amber file format
+starting MD simulation
+  starting min
+  starting heat 2
+  starting heat 3
+  starting heat 4
+  starting heat 5
+  starting heat 6
+  starting heat 7
+  starting heat 8
+create cleaned pdb from amber files
+analyze input pdb for individual helices in origami structure
+calculating average helical parameters from trajectory
+comparing simulation data to equilibrium coordinates
+total Energy of Structure: 603.1959428848896
+TAAAC E=1.6963105157039864 < old  |  new > TAGAA E=1.2725929841924262
+ACCCC E=4.01988234847275 < old  |  new > AACTT E=2.772690579042141
+CAAAA E=2.8288690841817785 < old  |  new > CAATA E=2.5316251228089177
+AAAAG E=5.9501961643872106 < old  |  new > CAATA E=2.0489795295262816
+CATTT E=14.246042903362623 < old  |  new > AGTCA E=12.716417036274743
+TACGA E=0.9180316608613212 < old  |  new > TACCA E=0.729219608898556
+ACTCA E=1.5893567724400672 < old  |  new > AATTT E=0.7166069267312651
+CTCAG E=2.424733538234108 < old  |  new > AATTT E=0.9139720276878873
+TATGA E=2.3991668077723425 < old  |  new > TACAA E=2.2398837149500337
+TGACA E=2.2050944919925604 < old  |  new > TGAAA E=2.1009868012648005
+TAAAT E=70.6270930958878 < old  |  new > TAAGA E=70.47135700442945
+TACGA E=1.7081442282365704 < old  |  new > TAGAA E=1.70366027444121

@@ -1,5 +1,5 @@
 parm MD_simulation/input.prmtop
-trajin MD_simulation/restart_files/gc1.rst7
+trajin MD_simulation/trajectorys/mdcrd.8md
 strip :Na+
 strip :WAT
 trajout output.pdb PDB
