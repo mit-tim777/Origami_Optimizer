@@ -1,28 +1,21 @@
 #!/bin/bash
 
 
-# conda activate AmberTools25
+bash bash_scripts/restart.sh 100
 
-bash restart.sh
 
 cp input/*.pdb output.pdb
 
-bash one_optimization_iteration.sh 0
-python Mutate/delete_residues.py
+bash bash_scripts/one_optimization_iteration.sh 0
+bash bash_scripts/mutate.sh  # only works rn in input is already standardized
 
-rm -rf MD_simulation/long_sim_data/*
-mv MD_simulation/trajectorys MD_simulation/long_sim_data/
-mv MD_simulation/info MD_simulation/long_sim_data/
-mv MD_simulation/out MD_simulation/long_sim_data/
-mv MD_simulation/restart_files MD_simulation/long_sim_data/
-mv MD_simulation/input.prmtop MD_simulation/long_sim_data/
-mkdir MD_simulation/trajectorys
-mkdir MD_simulation/out
-mkdir MD_simulation/info
-mkdir MD_simulation/restart_files
+bash bash_scripts/restart.sh 0
 
-bash one_optimization_iteration.sh 1
 
-# for i in {1..1}; do
-# done
+bash bash_scripts/one_optimization_iteration.sh 1
+bash bash_scripts/mutate.sh
 
+bash bash_scripts/restart.sh 1
+
+
+bash bash_scripts/one_optimization_iteration.sh 2

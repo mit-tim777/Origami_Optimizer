@@ -205,7 +205,7 @@ def calculate_displacement_energy2(helix, sequence):   # assuming the helix had 
 
 def write_tcl_representation_script(helices):   # the display_energys.tcl file can be loadid with vmd to visualize the energy of the helix deformations
 
-    COLORING_FACTOR = 10
+    COLORING_FACTOR = 0.3
     with open('display_energys.tcl', 'w') as f:
 
         f.write('mol new output.pdb \n')
@@ -214,10 +214,10 @@ def write_tcl_representation_script(helices):   # the display_energys.tcl file c
         for helix in helices:
 
             energy_sums = [sum(i) for i in helix['energys']['bp']]
-            color_param_bp = [i/COLORING_FACTOR for i in energy_sums]
+            color_param_bp = [i*COLORING_FACTOR for i in energy_sums]
 
-            energy_sums = [sum(helix['energys']['step'][i] + sum(helix['energys']['heli'][i])) for i in range(len(helix['energys']['step']))]
-            color_param_step = [i/COLORING_FACTOR for i in energy_sums]
+            energy_sums = [sum(helix['energys']['step'][i]) + sum(helix['energys']['heli'][i]) for i in range(len(helix['energys']['step']))]
+            color_param_step = [i*COLORING_FACTOR for i in energy_sums]
 
             selection_string = '"backbone and not name OP1 OP2"'
             f.write('mol addrep $molid \n')
@@ -276,13 +276,15 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
     }
     with open('Mutate/mutation_information.txt', 'w') as f:
         for helix in helices:
-            possible_new_sequences = get_all_possible_sequences('-' * len(helix['strand_sequences'][0]))
+            oldSeq = helix['strand_sequences'][0]
+            possible_new_sequences = get_all_possible_sequences('-' * len(oldSeq))
             offset_energys_for_all_possible_sequences = []
             
-            for seq in possible_new_sequences:   # make sure that sequences have certain ATGC content
-                A_n, T_n, C_n, G_n = seq.count('A'), seq.count('T'), seq.count('C'), seq.count('G')
-                old_A_n, old_T_n, old_C_n, old_G_n = helix['strand_sequences'][0].count('A'), helix['strand_sequences'][0].count('T'), helix['strand_sequences'][0].count('C'), helix['strand_sequences'][0].count('G')
-                if(A_n + T_n < old_A_n + old_T_n -1 or A_n + T_n > old_A_n + old_T_n +1):
+            CONTENT_CHANGE_ALLOWED = 1
+            old_AT_count = oldSeq.count('A') + oldSeq.count('T')
+            for seq in possible_new_sequences[:]:
+                new_AT_count = seq.count('A') + seq.count('T')
+                if new_AT_count > old_AT_count+CONTENT_CHANGE_ALLOWED or new_AT_count < old_AT_count-CONTENT_CHANGE_ALLOWED:
                     possible_new_sequences.remove(seq)
 
             for seq in possible_new_sequences:
@@ -293,10 +295,10 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
             new_Energy = offset_energys_for_all_possible_sequences[possible_new_sequences.index(new_seq)]
             
             for i, newRes in enumerate(new_seq):    # print to mutation information file in format <residue index> <new resname>
-                if(newRes != helix['strand_sequences'][0][i]):
+                if(newRes != oldSeq[i]):
                     f.write(str(helix['strand_res_inds'][0][i]+1) + " D" + newRes + '\n')
                     f.write(str(helix['strand_res_inds'][1][i]+1) + " D" + complements[newRes] + '\n')
-            print(helix['strand_sequences'][0] + ' E='+str(old_Energy)+ " < old  |  new > "+ new_seq + ' E='+str(new_Energy)) 
+            print(oldSeq + ' E='+str(old_Energy)+ " < old  |  new > "+ new_seq + ' E='+str(new_Energy)) 
 
 def get_helix_snippet(helix, start_bp, end_bp):
     if end_bp is None:
@@ -344,20 +346,18 @@ if __name__ == "__main__":
 
     # sort out hexamers that are next to a transition of a strand to another helix
     hexamers_next_to_transition = []
-    hexamer_len = 5
+    hexamer_len = 7
 
-    for helix in helices:       
-        starting_hexamer = get_helix_snippet(helix, 0, hexamer_len)
-        hexamers_next_to_transition.append(starting_hexamer)
 
-        if(len(helix['strand_sequences'][0]) > hexamer_len):
-            ending_hexamer = get_helix_snippet(helix, -hexamer_len, None)
-            hexamers_next_to_transition.append(ending_hexamer)
+    hexamers_next_to_transition.append(get_helix_snippet(helices[1], 0, hexamer_len))
+    hexamers_next_to_transition.append(get_helix_snippet(helices[2], -hexamer_len, None))
+    hexamers_next_to_transition.append(get_helix_snippet(helices[4], -hexamer_len, None))
+    hexamers_next_to_transition.append(get_helix_snippet(helices[5], 0, hexamer_len))
 
     for helix in hexamers_next_to_transition:
         helix['energys'] = calculate_displacement_energy(helix)
 
     find_energy_minimum_sequence(hexamers_next_to_transition)
     
-    write_tcl_representation_script(helices)
+    write_tcl_representation_script(hexamers_next_to_transition)
 

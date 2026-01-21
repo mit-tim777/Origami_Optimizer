@@ -6,7 +6,7 @@ input = loadpdb $PDBFILE
 
 source leaprc.water.opc
 
-solvateOct input OPCBOX 9.0
+solvateBox input OPCBOX 5.0
 
 addions input Na+ 0
 

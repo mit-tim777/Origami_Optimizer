@@ -67,7 +67,7 @@ if __name__ == "__main__":
         for line in f.readlines():
             res_to_change = int(line.split()[0])
             res_new_name = line.split()[1]
-           # print("replacing residue " + str(res_to_change) + " with " + res_new_name )
+            print("replacing residue " + str(res_to_change) + " with " + res_new_name )
             change_residue(res_to_change, res_new_name[1])
 
 

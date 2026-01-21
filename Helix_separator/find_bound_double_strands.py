@@ -202,7 +202,7 @@ def get_helix_chains(chains, helix):   # helices are defined just by start/end a
     for i in range(chain2_start, chain2_end+step, step):
         helix_chains[1].append(chains[chain2_ind][i])
     
-    if(chains[chain1_ind][0]['res_name'][2] == '5'):
+    if(len(chains[chain1_ind][0]['res_name']) == 3 and chains[chain1_ind][0]['res_name'][2] == '5'):
         helix_chains[0],helix_chains[1] = helix_chains[1],helix_chains[0]
 
     return helix_chains
@@ -242,7 +242,7 @@ def match_chains(chains):   # goes through all residues and constructs helices
 
                 lengths = [i['length'] for i in attempts]
                 if(len(lengths) != 0):
-                    if(max(lengths) > 4):
+                    if(max(lengths) > 5):
                         helices.append(attempts[lengths.index(max(lengths))])
     return helices
 
@@ -269,6 +269,7 @@ def get_helix_sequences(chains, helix):
         sequences[1].append(one_letter_names[bp2['res_name']])
 
     return sequences
+
 
 if __name__ == "__main__":
 

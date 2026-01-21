@@ -5,7 +5,7 @@ molecular dynamics long time run (PME, restart)
     ntt=1, temp0=300.0, tautp=0.1,
     ntp=1, taup=0.1,
     ntb=2, ntc=2, ntf=2,iwrap=0,
-    nstlim=200000, dt=0.002,
+    nstlim=1000000, dt=0.002,
     ntwx = 100,
     ntr=1,restraint_wt=0.05,restraintmask='(:1-174 & !@H=)',
     ntpr=5000,
