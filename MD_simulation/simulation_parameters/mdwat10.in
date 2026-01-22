@@ -4,9 +4,10 @@ molecular dynamics long time run (PME, restart)
     dielc=1.0, cut=8.5,
     ntt=1, temp0=300.0, tautp=1.0,
     ntp=1, taup=1.0,ioutfm=1, 
-    ntb=2, ntc=2, ntf=2,iwrap=1,
-    ntr=1,restraint_wt=0.05,restraintmask='(:1-37 & @CA)',
-    nstlim=500000, dt=0.002,
-    ntpr=50000,ntwx=10000,
+    ntb=2, ntc=2, ntf=2,iwrap=0,
+    ntwx=100,
+    nstlim=1000000, dt=0.002,
+    ntr=0,
+    ntpr=50000,
  &end
 eof

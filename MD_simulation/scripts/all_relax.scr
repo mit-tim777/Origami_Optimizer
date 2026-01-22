@@ -12,7 +12,7 @@ echo "  starting heat 2"
 echo "  starting heat 3"
 /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat3.in -c restart_files/gc2.rst7 -p input.prmtop -r restart_files/gc3.rst7 -o out/gc3.out -inf info/3md.info -ref restart_files/gc2.rst7 -x trajectorys/mdcrd.3md
 echo "  starting heat 4"
-/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat3.in -c restart_files/gc3.rst7 -p input.prmtop -r restart_files/gc4.rst7 -o out/gc4.out -inf info/4md.info -ref restart_files/gc3.rst7 -x trajectorys/mdcrd.4md
+/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat4.in -c restart_files/gc3.rst7 -p input.prmtop -r restart_files/gc4.rst7 -o out/gc4.out -inf info/4md.info -ref restart_files/gc3.rst7 -x trajectorys/mdcrd.4md
 echo "  starting heat 5"
 /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat5.in -c restart_files/gc4.rst7 -p input.prmtop -r restart_files/gc5.rst7 -o out/gc5.out -inf info/5md.info -ref restart_files/gc4.rst7 -x trajectorys/mdcrd.5md
 echo "  starting heat 6"
@@ -21,3 +21,7 @@ echo "  starting heat 7"
 /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat7.in -c restart_files/gc6.rst7 -p input.prmtop -r restart_files/gc7.rst7 -o out/gc7.out -inf info/7md.info -ref restart_files/gc6.rst7 -x trajectorys/mdcrd.7md
 echo "  starting heat 8"
 /home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat8.in -c restart_files/gc7.rst7 -p input.prmtop -r restart_files/gc8.rst7 -o out/gc8.out -inf info/8md.info -ref restart_files/gc7.rst7 -x trajectorys/mdcrd.8md
+echo "  starting heat 9"
+/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat9.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc8.rst7 -x trajectorys/mdcrd.9md
+echo "  starting heat 10"
+/home/t38guest/amber22/bin/pmemd.cuda -O -i simulation_parameters/mdwat10.in -c restart_files/gc9.rst7 -p input.prmtop -r restart_files/gc10.rst7 -o out/gc10.out -inf info/10md.info -ref restart_files/gc9.rst7 -x trajectorys/mdcrd.10md

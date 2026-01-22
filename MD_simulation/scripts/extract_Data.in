@@ -1,5 +1,5 @@
 parm MD_simulation/input.prmtop
-trajin MD_simulation/trajectorys/mdcrd.8md 100
+trajin MD_simulation/trajectorys/mdcrd.10md 1000
 
 nastruct data specifiedbp pairs $range_i hbcut 100.0 origincut 100.0 zcut 100.0 zanglecut 180
 go
