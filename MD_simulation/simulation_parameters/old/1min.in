@@ -5,8 +5,7 @@ minimization of solvent
   ntwe = 0, ntwr = 500, ntpr = 50,
   ntc = 2, ntf = 2, ntb = 1, ntp = 0,
   cut = 8.0,   
-  ntr = 0, restraintmask = '!(:1)',
-  restraint_wt = 100.0,
+  ntr = 0, 
   ioutfm=1, ntxo=2,
  /
 

@@ -7,7 +7,7 @@
   cut = 8.0, iwrap = 0,
   ntt =3, gamma_ln=1.0, ntb = 1, ntp = 0,
   nscm = 0,
-  ntr=0, restraintmask=':1-12', restraint_wt=0.0
+  ntr=1, restraintmask=':1-12', restraint_wt=0.0
   nmropt=1,
   ioutfm=1, ntxo=2,
  /

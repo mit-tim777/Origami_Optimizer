@@ -343,21 +343,7 @@ if __name__ == "__main__":
 
     print("total Energy of Structure: " + str(calculate_total_energy(helices)))
 
-
-    # sort out hexamers that are next to a transition of a strand to another helix
-    hexamers_next_to_transition = []
-    hexamer_len = 7
-
-
-    hexamers_next_to_transition.append(get_helix_snippet(helices[1], 0, hexamer_len))
-    hexamers_next_to_transition.append(get_helix_snippet(helices[2], -hexamer_len, None))
-    hexamers_next_to_transition.append(get_helix_snippet(helices[4], -hexamer_len, None))
-    hexamers_next_to_transition.append(get_helix_snippet(helices[5], 0, hexamer_len))
-
-    for helix in hexamers_next_to_transition:
-        helix['energys'] = calculate_displacement_energy(helix)
-
-    find_energy_minimum_sequence(hexamers_next_to_transition)
+    find_energy_minimum_sequence(helices)
     
-    write_tcl_representation_script(hexamers_next_to_transition)
+    write_tcl_representation_script(helices)
 

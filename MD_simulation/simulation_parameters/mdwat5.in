@@ -3,11 +3,11 @@ molecular dynamics long time run (PME, restart)
     imin=0,irest=1, ntx=5,
     dielc=1.0, cut=8.5,
     ntt=1, temp0=300.0, tautp=0.1,
-    ntp=1, taup=0.1, 
-    ntb=2, ntc=2, ntf=2,iwrap=0,
+    ntp=1, taup=1.0, 
+    ntc=2, ntf=2,iwrap=0,
     ntwx = 0,
-    nstlim=25000, dt=0.002,
-    ntr=1,restraint_wt=6.0,restraintmask='(:1-125 & !@H=)',
+    nstlim=10000, dt=0.002,
+    ntr=1,restraint_wt=6.0,restraintmask='(:1-34 & !@H=)',
     ntpr=5000,
  &end
 eof

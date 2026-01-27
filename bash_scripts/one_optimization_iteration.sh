@@ -11,7 +11,7 @@ PDBFILE=output.pdb envsubst < MD_simulation/scripts/load_pdb.in | tleap -f - >le
 echo "starting MD simulation" # --------------------------------------------------------------------
 
 cd MD_simulation
-bash scripts/all_relax.scr
+bash scripts/all_relax.scr $2
 cd .. 
 
 echo "create cleaned pdb from amber files" # -------------------------------------------------------
@@ -39,9 +39,15 @@ echo "comparing simulation data to equilibrium coordinates" # ------------------
 
 python Offset_energy_calculator/calculate.py
 
+echo "(mutating) deleting and renaming residues in output.pdb  for next iteration"
+
+python Mutate/delete_residues.py
+
+echo "saving all results to previous_iteration/iteration_$1/"
+
+bash bash_scripts/restart.sh $1
 
 
 
-# echo "starting vmd visualization of result"
 
-# #vmd -e display_energys.tcl
+# # #vmd -e display_energys.tcl

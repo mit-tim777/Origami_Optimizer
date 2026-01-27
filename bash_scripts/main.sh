@@ -1,15 +1,17 @@
 #!/bin/bash
 
-
-bash bash_scripts/restart.sh 100
-
+bash bash_scripts/clear.sh
 
 cp input/*.pdb output.pdb
 
-bash bash_scripts/one_optimization_iteration.sh 0
-# bash bash_scripts/mutate.sh  # only works rn in input is already standardized
+bash bash_scripts/one_optimization_iteration.sh 0 "restrained"
+bash bash_scripts/one_optimization_iteration.sh 1 "restrained"
 
-# bash bash_scripts/restart.sh 0
+cp input/*.pdb output.pdb
+
+bash bash_scripts/one_optimization_iteration.sh 2
+bash bash_scripts/one_optimization_iteration.sh 3
+
 
 
 # bash bash_scripts/one_optimization_iteration.sh 1
