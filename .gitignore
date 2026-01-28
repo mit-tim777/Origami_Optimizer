@@ -133,3 +133,5 @@ minimal_ori.pdb
 output.pdb
 MD_simulation/info/2md.info
 MD_simulation/out/gc2.out
+run.txt
+backup/succesfull_minimization/.gitignore

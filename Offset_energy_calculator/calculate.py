@@ -280,7 +280,7 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
             possible_new_sequences = get_all_possible_sequences('-' * len(oldSeq))
             offset_energys_for_all_possible_sequences = []
             
-            CONTENT_CHANGE_ALLOWED = 1
+            CONTENT_CHANGE_ALLOWED = 0
             old_AT_count = oldSeq.count('A') + oldSeq.count('T')
             for seq in possible_new_sequences[:]:
                 new_AT_count = seq.count('A') + seq.count('T')
@@ -342,6 +342,11 @@ if __name__ == "__main__":
         helices.append(helix)
 
     print("total Energy of Structure: " + str(calculate_total_energy(helices)))
+
+    helices = [get_helix_snippet(helices[0], 5, 12)]
+
+    for helix in helices:
+        helix['energys'] = calculate_displacement_energy(helix)
 
     find_energy_minimum_sequence(helices)
     
