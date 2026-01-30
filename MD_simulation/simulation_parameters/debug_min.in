@@ -1,0 +1,7 @@
+#  1500 steps minimization
+ &cntrl
+    maxcyc=50, imin=1, ntmin=2, cut=9.0, nsnb=20, igb=0,
+    dielc=1.0, ntpr=100,ntxo=1,
+ &end
+
+eof

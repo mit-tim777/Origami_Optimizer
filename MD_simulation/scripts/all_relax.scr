@@ -5,23 +5,30 @@ export CUDA_VISIBLE_DEVICES=0
 topo_file="input.prmtop"
 inp_cords="input.inpcrd"
 
-echo "  starting minimization"
-/home/t38guest/amber24/bin/pmemd -O -i simulation_parameters/min.in -c input.inpcrd -p input.prmtop -r restart_files/gc1.rst7 -o out/gc1.out -inf info/min.info
-echo "  starting heat 2"
-/home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat2.in -c restart_files/gc1.rst7 -p input.prmtop -r restart_files/gc2.rst7 -o out/gc2.out -inf info/2md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.2md
-echo "  starting heat 5"
-/home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat5.in -c restart_files/gc2.rst7 -p input.prmtop -r restart_files/gc5.rst7 -o out/gc5.out -inf info/5md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.5md
-echo "  starting heat 6"
-/home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat6.in -c restart_files/gc5.rst7 -p input.prmtop -r restart_files/gc6.rst7 -o out/gc6.out -inf info/6md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.6md
-echo "  starting heat 7"
-/home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat7.in -c restart_files/gc6.rst7 -p input.prmtop -r restart_files/gc7.rst7 -o out/gc7.out -inf info/7md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.7md
-echo "  starting heat 8"
-/home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat8.in -c restart_files/gc7.rst7 -p input.prmtop -r restart_files/gc8.rst7 -o out/gc8.out -inf info/8md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.8md
-
-if [[ $1 == "restrained" ]]; then
-    echo "  starting heat 9 with restraints"
-    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9_restrained.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
+if [[ $2 == "debug" ]]; then
+    echo "  starting debug minimization"
+    /home/t38guest/amber24/bin/pmemd -O -i simulation_parameters/debug_min.in -c input.inpcrd -p input.prmtop -r restart_files/gc1.rst7 -o out/gc1.out -inf info/min.info
+    echo "  starting debug heat"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/debug_mdwat.in -c restart_files/gc1.rst7 -p input.prmtop -r restart_files/debug_gc.rst7 -o out/debug_gc.out -inf info/debug_md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
 else
-    echo "  starting heat 9 with no restraints"
-    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
+    echo "  starting minimization"
+    /home/t38guest/amber24/bin/pmemd -O -i simulation_parameters/min.in -c input.inpcrd -p input.prmtop -r restart_files/gc1.rst7 -o out/gc1.out -inf info/min.info
+    echo "  starting heat 2"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat2.in -c restart_files/gc1.rst7 -p input.prmtop -r restart_files/gc2.rst7 -o out/gc2.out -inf info/2md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.2md
+    echo "  starting heat 5"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat5.in -c restart_files/gc2.rst7 -p input.prmtop -r restart_files/gc5.rst7 -o out/gc5.out -inf info/5md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.5md
+    echo "  starting heat 6"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat6.in -c restart_files/gc5.rst7 -p input.prmtop -r restart_files/gc6.rst7 -o out/gc6.out -inf info/6md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.6md
+    echo "  starting heat 7"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat7.in -c restart_files/gc6.rst7 -p input.prmtop -r restart_files/gc7.rst7 -o out/gc7.out -inf info/7md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.7md
+    echo "  starting heat 8"
+    /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat8.in -c restart_files/gc7.rst7 -p input.prmtop -r restart_files/gc8.rst7 -o out/gc8.out -inf info/8md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.8md
+
+    if [[ $1 == "restrained" ]]; then
+        echo "  starting heat 9 with restraints"
+        /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9_restrained.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
+    else
+        echo "  starting heat 9 with no restraints"
+        /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
+    fi
 fi

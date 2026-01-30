@@ -1,6 +1,5 @@
 # #!/bin/bash
 
-
 echo " iteration $1 -----------------------------------------------------------------------------------------"
 mkdir previous_iteration/iteration_$1
 
@@ -11,7 +10,7 @@ PDBFILE=output.pdb envsubst < MD_simulation/scripts/load_pdb.in | tleap -f - >le
 echo "starting MD simulation" # --------------------------------------------------------------------
 
 cd MD_simulation
-bash scripts/all_relax.scr $2
+bash scripts/all_relax.scr $2 $3
 cd .. 
 
 echo "create cleaned pdb from amber files" # -------------------------------------------------------

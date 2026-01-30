@@ -1,16 +1,17 @@
 #!/bin/bash
 
+
 bash bash_scripts/clear.sh
 
 cp input/*.pdb output.pdb
 
-bash bash_scripts/one_optimization_iteration.sh 0 "restrained"
-bash bash_scripts/one_optimization_iteration.sh 1 "restrained"
+bash bash_scripts/one_optimization_iteration.sh 0 "restrained" "nodebug"
+bash bash_scripts/one_optimization_iteration.sh 1 "restrained" "nodebug"
 
 cp input/*.pdb output.pdb
 
-bash bash_scripts/one_optimization_iteration.sh 2
-bash bash_scripts/one_optimization_iteration.sh 3
+bash bash_scripts/one_optimization_iteration.sh 2 "unrestrained" "nodebug"
+bash bash_scripts/one_optimization_iteration.sh 3 "unrestrained" "nodebug"
 
 
 
