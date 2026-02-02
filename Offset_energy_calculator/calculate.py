@@ -1,4 +1,6 @@
 import csv
+from pathlib import Path
+import re
 import numpy as np
 import os, os.path
 import random
@@ -63,13 +65,13 @@ def safe_float(x):
         return x 
 
 def load_equalibrium_params(): # load the equalibrium parameters from the paper "Sequence-Dependent Shape and Stiffness of DNA and RNA Double Helices"
-    with open(root+'hexamers_csv/DNA/coords_grooves_DNA_hexamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_step_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    with open(root+'hexamers_csv/DNA/coords_grooves_DNA_hexamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_heli_params = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
-    with open(root+'hexamers_csv/DNA/coords_grooves_DNA_heptamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_heptamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_bp_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
     equalibrium_params = {
@@ -80,13 +82,13 @@ def load_equalibrium_params(): # load the equalibrium parameters from the paper 
     return equalibrium_params
 
 def load_stiffs():  # load the quadratic offset energy stiffness
-    with open(root+'hexamers_csv/DNA/coords_stiffs_DNA_hexamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         step_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    with open(root+'hexamers_csv/DNA/coords_stiffs_DNA_hexamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         heli_stiffs = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
-    with open(root+'hexamers_csv/DNA/coords_stiffs_DNA_heptamers_table.csv') as f:
+    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_heptamers_table.csv") as f:
         data = csv.reader(f)
         bp_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
     stiffs = {
@@ -328,16 +330,17 @@ def calculate_total_energy(helices):
     return total_energy
 
 
-root = './Offset_energy_calculator/'
+root_dir = Path(__file__).resolve().parents[1]
+equalibrium_params = load_equalibrium_params()
+stiffs = load_stiffs()
 
 if __name__ == "__main__":
-    equalibrium_params = load_equalibrium_params()
-    stiffs = load_stiffs()
-    
+  
     # load in helices which were previously found by find_bound_double_strands.py
     helices = []
-    for i in range(len([name for name in os.listdir(root+'MD_Results')])):
-        helix = extract_data(root+'MD_Results/MD_averaged_parameters_of_helix_'+str(i)+'.dat')
+    md_results_dir = root_dir / "Offset_energy_calculator" / "MD_Results"
+    for helix_file in md_results_dir.glob("MD_averaged_parameters_of_helix_*.dat"):
+        helix = extract_data(helix_file)
         helix['energys'] = calculate_displacement_energy(helix)
         helices.append(helix)
 
@@ -351,4 +354,6 @@ if __name__ == "__main__":
     find_energy_minimum_sequence(helices)
     
     write_tcl_representation_script(helices)
+
+
 
