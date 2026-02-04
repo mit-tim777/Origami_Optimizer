@@ -1,22 +1,23 @@
 from pathlib import Path
 import re
 import matplotlib
+from matplotlib.patches import ConnectionPatch
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 from io import StringIO
 import matplotlib.pyplot as plt
 import sys
-import os
-
+import os, os.path
 # Adds the parent directory (project/) to the path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 import Offset_energy_calculator.calculate as calc
 
 
 
 
-n_params = 3  # Select top n most impactful parameters
+n_params = 5 # Select top n most impactful parameters
 range_to_inspect = range(5, 12)  # Range of base pair indices to inspect
 
 
@@ -56,12 +57,11 @@ for d in iter_dirs:
 energy_by_param = {k: 0.0 for k in bp_keys + step_keys + heli_keys}
 for helix in helix_by_iteration:
     for i, k in enumerate(bp_keys):
-        energy_by_param[k] += sum(row[i] for row in helix['energys']['bp'])
+        energy_by_param[k] += sum(row[i] for row in helix['energys']['bp'][range_to_inspect.start:range_to_inspect.stop])
     for i, k in enumerate(step_keys):
-        energy_by_param[k] += sum(row[i] for row in helix['energys']['step'])
+        energy_by_param[k] += sum(row[i] for row in helix['energys']['step'][range_to_inspect.start:range_to_inspect.stop])
     for i, k in enumerate(heli_keys):
-        energy_by_param[k] += sum(row[i] for row in helix['energys']['heli'])
-
+        energy_by_param[k] += sum(row[i] for row in helix['energys']['heli'][range_to_inspect.start:range_to_inspect.stop])
 # Sort parameters by total energy (descending) and select top n
 sorted_params = sorted(energy_by_param.items(), key=lambda x: x[1], reverse=True)
 param_keys = tuple(k for k, _ in sorted_params[:n_params])
@@ -118,7 +118,7 @@ for ax, (param, values) in zip(axes, avg_by_param.items()):
                       fc=colors[bp_offset], ec=colors[bp_offset], length_includes_head=True, width=0.01)
     
     # Label y-axis with the parameter name.
-    ax.set_ylabel(param)
+    ax.set_ylabel(str(param) + " " + str(energy_by_param[param]/sum(energy_by_param.values())*100)[:4] + "%")
     # Show every iteration index as a tick.
     ax.set_xticks(iterations)
     # Add horizontal grid
@@ -129,12 +129,21 @@ axes[-1].set_xlabel("Iteration")
 
 # Display the sequence with the inspected range highlighted
 for i, helix in enumerate(helix_by_iteration):
-    fig.text(0.2*i+0.15, 0.9, helix['strand_sequences'][0] , fontsize=6,fontname='monospace',)
-    range_to_inspect_seq = ''.join([ c if i in range_to_inspect else " " for i,c in enumerate(helix['strand_sequences'][0])])
-    fig.text(0.2*i+0.15, 0.9, range_to_inspect_seq , fontsize=6, fontname='monospace', color='red')
+    fig.text(0.19*i+0.15, 0.9, helix['strand_sequences'][0] , fontsize=6,fontname='monospace',)
+    for k, j in enumerate(range_to_inspect):
+        range_to_inspect_seq = ''.join([ c if l == j else " " for l,c in enumerate(helix['strand_sequences'][0])])
+        fig.text(0.19*i+0.15, 0.9, range_to_inspect_seq , fontsize=6, fontname='monospace', color=colors[k])
 
+
+# Add vertical dividers between iterations
+for i in [0.5+j for j in range(3)]:
+    divider_display = axes[0].transData.transform((i, 0))
+    divider_fig_x = fig.transFigure.inverted().transform(divider_display)[0]
+    fig.add_artist(Line2D([divider_fig_x, divider_fig_x], [0.1, 0.93], transform=fig.transFigure, color="black", linewidth=0.5))
 
 # Figure title and file output.
-fig.suptitle("Averaged Helical Coordinates (Iterations 0-3)")
-fig.savefig("foo.pdf", bbox_inches="tight")
+
+# Offset Vektors of the MD Averaged Parameters Compared to Equalibrium Values for the n most energetically Impactful Parameters
+fig.suptitle("Restrained                     non Restrained")
+fig.savefig("matplotlib_analysis/Equalibrium_Offset_Vectors_graph.pdf", bbox_inches="tight")
 
