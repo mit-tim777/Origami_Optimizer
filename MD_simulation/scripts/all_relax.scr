@@ -26,7 +26,7 @@ else
 
     if [[ $1 == "restrained" ]]; then
         echo "  starting heat 9 with restraints"
-        /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9_restrained.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md
+        /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9_restrained.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9_restrained.rst7 -o out/gc9_restrained.out -inf info/9md_restrained.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd_restrained.9md
     else
         echo "  starting heat 9 with no restraints"
         /home/t38guest/amber24/bin/pmemd.cuda -O -i simulation_parameters/mdwat9.in -c restart_files/gc8.rst7 -p input.prmtop -r restart_files/gc9.rst7 -o out/gc9.out -inf info/9md.info -ref restart_files/gc1.rst7 -x trajectorys/mdcrd.9md

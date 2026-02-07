@@ -52,7 +52,9 @@ def extract_data(filename): # read out the averaged helical parameters for one h
             'step_params' : step_params,
             'bp_params' : bp_params,
             'heli_params' : heli_params,
-            'energys' : None
+            'energys' : None,
+            'stiffs' : None,
+            'eq_params' : None
         }
 
 
@@ -140,6 +142,8 @@ def get_stiffs(param_type, sequence):   # for sequences with placeholders '-', r
   
 def compare_steps_to_eql(helix):  # calculate the offset energy for all step parameters compared to equalibrium
     differences = [[0,0,0,0,0,0]] * len(helix['step_params'])
+    stiffnesses = [[0,0,0,0,0,0]] * len(helix['step_params'])
+    equalibrium_params = [[0,0,0,0,0,0]] * len(helix['step_params'])
 
     seq = helix['strand_sequences'][0]
     for step_n in range(0, len(helix['step_params'])):
@@ -151,10 +155,14 @@ def compare_steps_to_eql(helix):  # calculate the offset energy for all step par
             diff = 0.5 * step_stiffs[j] * pow(helix['step_params'][step_n][j] - step_eql_params[j],2)
             diffs_of_step.append(diff)
         differences[step_n] = diffs_of_step
-    return(differences)
+        stiffnesses[step_n] = step_stiffs
+        equalibrium_params[step_n] = step_eql_params
+    return(differences, stiffnesses, equalibrium_params)
 
 def compare_heli_to_eql(helix):  # calculate the offset energy for all helical parameters compared to equalibrium
     differences = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+    stiffnesses = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+    equalibrium_params = [[0,0,0,0,0,0]] * len(helix['heli_params'])
 
     seq = helix['strand_sequences'][0]
     for step_n in range(0, len(helix['heli_params'])):
@@ -166,30 +174,46 @@ def compare_heli_to_eql(helix):  # calculate the offset energy for all helical p
             diff = 0.5 * step_stiffs[j] * pow(helix['heli_params'][step_n][j] - step_eql_params[j],2)
             diffs_of_step.append(diff)
         differences[step_n] = diffs_of_step
-    return(differences)
+        stiffnesses[step_n] = step_stiffs
+        equalibrium_params[step_n] = step_eql_params
+    return(differences, stiffnesses, equalibrium_params)
 
 def compare_bp_to_eql(helix):   # calculate the offset energy for all base pair parameters compared to equalibrium
     differences = [[0,0,0,0,0,0]] * len(helix['bp_params'])
+    stiffnesses = [[0,0,0,0,0,0]] * len(helix['bp_params'])
+    equalibrium_params = [[0,0,0,0,0,0]] * len(helix['bp_params'])
 
     seq = helix['strand_sequences'][0]
     for bp_n in range(0, len(helix['bp_params'])):
         diffs_of_bp = []
         hep_seq = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(bp_n-3,bp_n+4)])
-        eql_params = get_equalibrium_params('bp',hep_seq)
+        bp_eql_params = get_equalibrium_params('bp',hep_seq)
         bp_stiffs = get_stiffs('bp',hep_seq)
         for j in range(6):
-            diff = 0.5 * bp_stiffs[j] * pow(helix['bp_params'][bp_n][j] - eql_params[j], 2)
+            diff = 0.5 * bp_stiffs[j] * pow(helix['bp_params'][bp_n][j] - bp_eql_params[j], 2)
             diffs_of_bp.append(diff)
         differences[bp_n] = diffs_of_bp
-    return(differences)
+        stiffnesses[bp_n] = bp_stiffs
+        equalibrium_params[bp_n] = bp_eql_params
+    return(differences, stiffnesses, equalibrium_params)
 
 def calculate_displacement_energy(helix):  
     coordinate_displacements = {
-        'bp'   : compare_bp_to_eql(helix),
-        'step' : compare_steps_to_eql(helix), 
-        'heli' : compare_heli_to_eql(helix)
+        'bp'   : compare_bp_to_eql(helix)[0],
+        'step' : compare_steps_to_eql(helix)[0], 
+        'heli' : compare_heli_to_eql(helix)[0]
     }
-    return coordinate_displacements
+    stiffs = {
+        'bp'   : compare_bp_to_eql(helix)[1],
+        'step' : compare_steps_to_eql(helix)[1],
+        'heli' : compare_heli_to_eql(helix)[1]
+    }
+    equalibrium_params = {
+        'bp'   : compare_bp_to_eql(helix)[2],
+        'step' : compare_steps_to_eql(helix)[2], 
+        'heli' : compare_heli_to_eql(helix)[2]
+    }
+    return (coordinate_displacements, stiffs, equalibrium_params)
 
 def calculate_displacement_energy2(helix, sequence):   # assuming the helix had another sequence, then calculate the displacement energy
     complements = {
@@ -198,12 +222,13 @@ def calculate_displacement_energy2(helix, sequence):   # assuming the helix had 
     complementary = "".join([complements[i] for i in sequence])
     helix_cpy = copy.deepcopy(helix)
     helix_cpy['strand_sequences'] = [ "".join(sequence) , complementary]
+
     coordinate_displacements = {
-        'bp'   : compare_bp_to_eql(helix_cpy),
-        'step' : compare_steps_to_eql(helix_cpy), 
-        'heli' : compare_heli_to_eql(helix_cpy)
+        'bp'   : compare_bp_to_eql(helix_cpy)[0],
+        'step' : compare_steps_to_eql(helix_cpy)[0], 
+        'heli' : compare_heli_to_eql(helix_cpy)[0]
     }
-    return coordinate_displacements
+    return (coordinate_displacements)
 
 def write_tcl_representation_script(helices):   # the display_energys.tcl file can be loadid with vmd to visualize the energy of the helix deformations
 
@@ -293,7 +318,8 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
                 offset_energys_for_all_possible_sequences.append(sum_all_offset_energys(calculate_displacement_energy2(helix, seq)))
 
             new_seq = possible_new_sequences[offset_energys_for_all_possible_sequences.index(min(offset_energys_for_all_possible_sequences))] 
-            old_Energy = sum_all_offset_energys(calculate_displacement_energy(helix))
+            old_Energy = calculate_displacement_energy(helix)[0]
+            old_Energy = sum_all_offset_energys(old_Energy)
             new_Energy = offset_energys_for_all_possible_sequences[possible_new_sequences.index(new_seq)]
             
             for i, newRes in enumerate(new_seq):    # print to mutation information file in format <residue index> <new resname>
@@ -341,7 +367,7 @@ if __name__ == "__main__":
     md_results_dir = root_dir / "Offset_energy_calculator" / "MD_Results"
     for helix_file in md_results_dir.glob("MD_averaged_parameters_of_helix_*.dat"):
         helix = extract_data(helix_file)
-        helix['energys'] = calculate_displacement_energy(helix)
+        helix['energys'], helix['stiffs'], helix['eq_params'] = calculate_displacement_energy(helix)
         helices.append(helix)
 
     print("total Energy of Structure: " + str(calculate_total_energy(helices)))
@@ -349,7 +375,7 @@ if __name__ == "__main__":
     helices = [get_helix_snippet(helices[0], 5, 12)]
 
     for helix in helices:
-        helix['energys'] = calculate_displacement_energy(helix)
+        helix['energys'], helix['stiffs'], helix['eq_params'] = calculate_displacement_energy(helix)
 
     find_energy_minimum_sequence(helices)
     

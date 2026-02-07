@@ -50,7 +50,7 @@ for d in iter_dirs:
     md_file = file = d / "MD_Results" / "MD_averaged_parameters_of_helix_0.dat"
 
     helix = calc.extract_data(md_file)
-    helix['energys'] = calc.calculate_displacement_energy(helix)
+    helix['energys'], helix['stiffs'], helix['eq_params'] = calc.calculate_displacement_energy(helix)
     helix_by_iteration.append(helix)
 
 # Calculate total energy contribution per parameter type across all helices/iterations
@@ -72,28 +72,35 @@ avg_by_param = {k: [] for k in param_keys}
 
 
 
-
 for k in param_keys:
     for helix in helix_by_iteration:
         seq = helix['strand_sequences'][0]
         iteration_data = []
         for place_to_inspect in range_to_inspect:
             if k in bp_keys:
-               heptamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-3,place_to_inspect+4)]) 
+               #heptamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-3,place_to_inspect+4)]) 
                param = helix['bp_params'][place_to_inspect][bp_keys.index(k)]
-               eql_param = calc.get_equalibrium_params("bp", heptamer_sequence)[bp_keys.index(k)]
-               iteration_data.append( (param, eql_param) )
+               eql_param = helix['eq_params']['bp'][place_to_inspect][bp_keys.index(k)]
+               stiffs = helix['stiffs']['bp'][place_to_inspect][bp_keys.index(k)]
+               iteration_data.append( (param, eql_param, stiffs) )
             elif k in step_keys:
-               hexamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-2,place_to_inspect+4)]) 
-               param = helix['step_params'][place_to_inspect-1][step_keys.index(k)]
-               eql_param = calc.get_equalibrium_params("step", hexamer_sequence)[step_keys.index(k)]
-               iteration_data.append( (param, eql_param) )
+               #hexamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-2,place_to_inspect+4)]) 
+               param = helix['step_params'][place_to_inspect][step_keys.index(k)]
+               eql_param = helix['eq_params']['step'][place_to_inspect][step_keys.index(k)]
+               stiffs = helix['stiffs']['step'][place_to_inspect][step_keys.index(k)]
+               iteration_data.append( (param, eql_param, stiffs) )
             elif k in heli_keys:
-               hexamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-2,place_to_inspect+4)]) 
-               param = helix['heli_params'][place_to_inspect-1][heli_keys.index(k)]
-               eql_param = calc.get_equalibrium_params("heli", hexamer_sequence)[heli_keys.index(k)]
-               iteration_data.append( (param, eql_param) )
+               #hexamer_sequence = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(place_to_inspect-2,place_to_inspect+4)]) 
+               param = helix['heli_params'][place_to_inspect][heli_keys.index(k)]
+               eql_param = helix['eq_params']['heli'][place_to_inspect][heli_keys.index(k)]
+               stiffs = helix['stiffs']['heli'][place_to_inspect][heli_keys.index(k)]
+               iteration_data.append( (param, eql_param, stiffs) )
         avg_by_param[k].append(iteration_data)
+
+# for k, v in avg_by_param.items():
+#     print(k)
+#     for iteration_data in v:
+#         print(iteration_data)
 
 
 # Create one subplot per parameter, stacked vertically and sharing x-axis.
@@ -103,19 +110,20 @@ num_bp_in_range = len(range_to_inspect)
 colors = plt.cm.tab10(np.linspace(0, 1, num_bp_in_range))
 
 for ax, (param, values) in zip(axes, avg_by_param.items()):
-    # values is a list of iterations, each containing [(param, eql_param) for each bp in range]
+    # values is a list of iterations, each containing [(param, eql_param, stiffs) for each bp in range]
     
     # Create x-positions: for each iteration, place base pairs side by side
     spacing = 0.8 / num_bp_in_range  # Space allocated for all bp within one iteration
     
+    arrow_width_factor = 0.1/max([x[2] for iteration_data in values for x in iteration_data])  # Adjust this factor to control arrow width
     for iter_idx, iteration_data in enumerate(values):
         base_x = iterations[iter_idx]
-        for bp_offset, (param_val, eql_val) in enumerate(iteration_data):
+        for bp_offset, (param_val, eql_val, stiff_val) in enumerate(iteration_data):
             # Position base pairs next to each other within the iteration
             x_pos = base_x - 0.4 + spacing * bp_offset + spacing / 2
             dy = param_val - eql_val  # vertical displacement
-            ax.arrow(x_pos, eql_val, 0, dy, head_width=0.03, head_length=abs(dy)*0.33 if dy != 0 else 0.1,
-                      fc=colors[bp_offset], ec=colors[bp_offset], length_includes_head=True, width=0.01)
+            ax.arrow(x_pos, eql_val, 0, dy, head_width=arrow_width_factor*stiff_val, head_length=abs(dy)*0.25 if dy != 0 else 0.1,
+                      fc=colors[bp_offset], ec=colors[bp_offset], length_includes_head=True, width=arrow_width_factor*stiff_val)
     
     # Label y-axis with the parameter name.
     ax.set_ylabel(str(param) + " " + str(energy_by_param[param]/sum(energy_by_param.values())*100)[:4] + "%")
