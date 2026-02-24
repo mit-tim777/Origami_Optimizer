@@ -8,7 +8,7 @@ mv MD_simulation/out previous_iteration/iteration_$1/
 mv MD_simulation/restart_files previous_iteration/iteration_$1/
 mv display_energys.tcl previous_iteration/iteration_$1/
 mv Mutate/mutation_information.txt previous_iteration/iteration_$1/
-mv cpptraj_base_pairing.txt previous_iteration/iteration_$1/
+mv Helix_separator/cpptraj_base_pairing.txt previous_iteration/iteration_$1/
 mv MD_simulation/input.* previous_iteration/iteration_$1/
 mv cpptraj.out previous_iteration/iteration_$1/
 mv leap.out previous_iteration/iteration_$1/

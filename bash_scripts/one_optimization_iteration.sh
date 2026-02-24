@@ -1,6 +1,6 @@
 # #!/bin/bash
 
-echo " iteration $1 -----------------------------------------------------------------------------------------"
+echo " iteration $1 --------------------------------------------------------------------"
 mkdir previous_iteration/iteration_$1
 
 echo "loading pdb into amber file format"  # -------------------------------------------------------
@@ -44,7 +44,7 @@ python Mutate/delete_residues.py
 
 echo "saving all results to previous_iteration/iteration_$1/"
 
-bash bash_scripts/restart.sh $1
+bash bash_scripts/restart_iteration.sh $1
 
 
 

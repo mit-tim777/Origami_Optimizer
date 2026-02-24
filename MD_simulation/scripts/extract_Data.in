@@ -1,5 +1,5 @@
 parm MD_simulation/input.prmtop
-trajin MD_simulation/trajectorys/mdcrd*.9md 10
+trajin MD_simulation/trajectorys/mdcrd*.9md 1 100
 
 nastruct data specifiedbp pairs $range_i hbcut 100.0 origincut 100.0 zcut 100.0 zanglecut 180
 go
@@ -29,7 +29,7 @@ avg data[htwist] name htwist
 go
 
 
-write Offset_energy_calculator/MD_Results/MD_averaged_parameters_of_helix_$ind.dat shear[avg] stretch[avg] stagger[avg] buckle[avg] prop[avg] open[avg] shift[avg] slide[avg] rise[avg] tilt[avg] roll[avg] twist[avg] xdisp[avg] ydisp[avg] hrise[avg] incl[avg] tip[avg] htwist[avg] 
+write Offset_energy_calculator/MD_Results/MD_averaged_parameters_of_helix_$ind.dat shear[avg] stretch[avg] stagger[avg] buckle[avg] prop[avg] open[avg] shift[avg] slide[avg] rise[avg] tilt[avg] roll[avg] twist[avg] xdisp[avg] ydisp[avg] hrise[avg] incl[avg] tip[avg] htwist[avg] shear[sd] stretch[sd] stagger[sd] buckle[sd] prop[sd] open[sd] shift[sd] slide[sd] rise[sd] tilt[sd] roll[sd] twist[sd] xdisp[sd] ydisp[sd] hrise[sd] incl[sd] tip[sd] htwist[sd] 
 
 
 go

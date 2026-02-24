@@ -3,22 +3,29 @@
 
 bash bash_scripts/clear.sh
 
-cp input/*.pdb output.pdb
 
-bash bash_scripts/one_optimization_iteration.sh 0 "restrained" "nodebug"
-bash bash_scripts/one_optimization_iteration.sh 1 "restrained" "nodebug"
+for i in {1..10}; do
+    echo "-----------------------------------------------------------------------------------------------------------------------------------"
+    cp template_pdb/*.pdb input/input.pdb
 
-cp input/*.pdb output.pdb
+    tleap -f MD_simulation/scripts/standardise_pdb.in  >leap.out
 
-bash bash_scripts/one_optimization_iteration.sh 2 "unrestrained" "nodebug"
-bash bash_scripts/one_optimization_iteration.sh 3 "unrestrained" "nodebug"
+    cp input/*.pdb output.pdb
 
+    python Helix_separator/find_bound_double_strands.py
 
+    python Mutate/assign_new_starting_sequence.py
 
-# bash bash_scripts/one_optimization_iteration.sh 1
-# bash bash_scripts/mutate.sh
+    cp input/*.pdb output.pdb
 
-# bash bash_scripts/restart.sh 1
+    bash bash_scripts/one_optimization_iteration.sh 1 "restrained" "nodebug"
+    bash bash_scripts/one_optimization_iteration.sh 2 "restrained" "nodebug"
 
+    cp input/*.pdb output.pdb
 
-# bash bash_scripts/one_optimization_iteration.sh 2
+    bash bash_scripts/one_optimization_iteration.sh 3 "unrestrained" "nodebug"
+    bash bash_scripts/one_optimization_iteration.sh 4 "unrestrained" "nodebug"
+
+    bash bash_scripts/restart_sequence.sh $i
+
+done

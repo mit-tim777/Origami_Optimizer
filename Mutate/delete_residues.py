@@ -3,7 +3,7 @@ import sys
 
 # This file changes the residues of the dna structure (pdb file) by renaming residues to the new wanted residue name and deleting all atoms exept the ones similar in all residue (reference atoms)  so that tleap can reconstruct the residue 
 
-pdb_file = 'output.pdb'
+
 atoms_to_keep = {  #                     backbone beginning                             reference atoms               backbone end
     'A': ["P","OP1","OP2","O5'","C5'","H5'","H5''","C4'","H4'","O4'","C1'","H1'",      "N9","C8","H8",   "C4",       "C3'","H3'","C2'","H2'","H2''","O3'"],
     'T': ["P","OP1","OP2","O5'","C5'","H5'","H5''","C4'","H4'","O4'","C1'","H1'",      "N1","C6","H6",   "C2",       "C3'","H3'","C2'","H2'","H2''","O3'"],
@@ -33,14 +33,15 @@ change_names = {  #   holds lists of atom names to change from (oldname, newname
     'G': { 'A' : [],                                                     'T' : [('N9','N1'),('C8','C6'),('H8','H6'),('C4','C2')],  'C' : [('N9','N1'),('C8','C6'),('H8','H6'),('C4','C2')], 'G' : []}
 }
 
-def change_residue(res_to_change,new_name):
-
+def change_residue(pdb_file, res_to_change,new_name):
+    #print("replacing residue " + str(res_to_change) + " with " + new_name )
     out = []
     for line in open(pdb_file):
         
-        if not line.startswith(("ATOM", "TER")): # keep all headers and meta information of pdb
+        if not line.startswith(("ATOM")): #, "TER")): # keep all headers and meta information of pdb
             out.append(line)
             continue
+
         resid = int(line[22:26])
         resname = str(line[17:20]).strip()
         atom_name = str(line[12:16]).strip()
@@ -60,14 +61,14 @@ def change_residue(res_to_change,new_name):
             out.append(line)
 
 
-    open("output.pdb", "w").writelines(out)
+    open(pdb_file, "w").writelines(out)
 
 if __name__ == "__main__":
     with open('Mutate/mutation_information.txt', 'r') as f:     # contains only lines with '<resindex> <newResName>'
         for line in f.readlines():
             res_to_change = int(line.split()[0])
             res_new_name = line.split()[1]
-            print("replacing residue " + str(res_to_change) + " with " + res_new_name )
-            change_residue(res_to_change, res_new_name[1])
+            
+            change_residue("output.pdb", res_to_change, res_new_name[1])
 
 
