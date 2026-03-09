@@ -13,8 +13,9 @@ mv MD_simulation/input.* previous_iteration/iteration_$1/
 mv cpptraj.out previous_iteration/iteration_$1/
 mv leap.out previous_iteration/iteration_$1/
 mv leap.log previous_iteration/iteration_$1/
-mv Offset_energy_calculator/MD_Results/ previous_iteration/iteration_$1/
-  
+mkdir previous_iteration/iteration_$1/Offset_energy_calculator
+mv Offset_energy_calculator/MD_Results/ previous_iteration/iteration_$1/Offset_energy_calculator
+
 mkdir MD_simulation/trajectorys
 mkdir MD_simulation/out
 mkdir MD_simulation/info

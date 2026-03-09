@@ -6,6 +6,11 @@ import os, os.path
 import random
 import copy
 
+root_dir = Path(__file__).resolve().parents[1] / "result_data" / "sequence_1" / "iteration_1"
+
+csv_directory = Path(__file__).resolve().parents[1] / "Offset_energy_calculator" / "hexamers_csv" / "DNA"
+
+
 def print_helix_text_reprensentation(helix):
     
     for b in helix['strand_sequences'][0]:
@@ -45,27 +50,26 @@ def extract_data(filename): # read out the averaged helical parameters for one h
                 continue
             bp_params.append(params_raw[1:7])
             step_params.append(params_raw[7:13])
-            heli_params.append(params_raw[13:19])
+            #heli_params.append(params_raw[13:19])
             bp_params_sd.append(params_raw[19:25])
             step_params_sd.append(params_raw[25:31])
-            heli_params_sd.append(params_raw[31:37])
+            #heli_params_sd.append(params_raw[31:37])
         
         step_params.pop(-1)
-        heli_params.pop(-1)
+        #heli_params.pop(-1)
         step_params_sd.pop(-1)
-        heli_params_sd.pop(-1)
+        #heli_params_sd.pop(-1)
         
         helix = {
             'strand_sequences' : strands,
             'strand_res_inds' : strand_res_inds,
             'bp_params' : bp_params,
             'step_params' : step_params,
-            'heli_params' : heli_params,
+          #  'heli_params' : heli_params,
             'bp_params_sd' : bp_params_sd,
             'step_params_sd' : step_params_sd,
-            'heli_params_sd' : heli_params_sd,
+         #   'heli_params_sd' : heli_params_sd,
             'energys' : None,
-            'displacements' : None,
             'stiffs' : None,
             'eq_params' : None
         }
@@ -80,36 +84,36 @@ def safe_float(x):
         return x 
 
 def load_equalibrium_params(): # load the equalibrium parameters from the paper "Sequence-Dependent Shape and Stiffness of DNA and RNA Double Helices"
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
+    with open(csv_directory / "coords_grooves_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_step_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
-        data = csv.reader(f)
-        equalibrium_heli_params = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_heptamers_table.csv") as f:
+    # with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
+    #     data = csv.reader(f)
+    #     equalibrium_heli_params = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
+    with open(csv_directory / "coords_grooves_DNA_heptamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_bp_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
     equalibrium_params = {
         'bp' : equalibrium_bp_params,
         'step' : equalibrium_step_params,
-        'heli' : equalibrium_heli_params
+        # 'heli' : equalibrium_heli_params
     }
     return equalibrium_params
 
 def load_stiffs():  # load the quadratic offset energy stiffness
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
+    with open(csv_directory / "coords_stiffs_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         step_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
-        data = csv.reader(f)
-        heli_stiffs = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
-    with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_heptamers_table.csv") as f:
+    # with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
+    #     data = csv.reader(f)
+    #     heli_stiffs = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
+    with open(csv_directory / "coords_stiffs_DNA_heptamers_table.csv") as f:
         data = csv.reader(f)
         bp_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
     stiffs = {
         'bp'   :   bp_stiffs,
         'step' : step_stiffs,
-        'heli' : heli_stiffs
+        # 'heli' : heli_stiffs
     }
     return stiffs
 
@@ -177,29 +181,29 @@ def compare_steps_to_eql(helix):  # calculate the offset energy for all step par
         equalibrium_params[step_n] = step_eql_params
     return(energys, stiffnesses, equalibrium_params, differences)
 
-def compare_heli_to_eql(helix):  # calculate the offset energy for all helical parameters compared to equalibrium
-    differences = [[0,0,0,0,0,0]] * len(helix['heli_params'])
-    stiffnesses = [[0,0,0,0,0,0]] * len(helix['heli_params'])
-    energys = [[0,0,0,0,0,0]] * len(helix['heli_params'])
-    equalibrium_params = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+# def compare_heli_to_eql(helix):  # calculate the offset energy for all helical parameters compared to equalibrium
+#     differences = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+#     stiffnesses = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+#     energys = [[0,0,0,0,0,0]] * len(helix['heli_params'])
+#     equalibrium_params = [[0,0,0,0,0,0]] * len(helix['heli_params'])
 
-    seq = helix['strand_sequences'][0]
-    for step_n in range(0, len(helix['heli_params'])):
-        diffs_of_step = []
-        energy_of_step = []
-        hex_seq = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(step_n-2,step_n+4)])
-        step_eql_params = get_equalibrium_params('heli', hex_seq)
-        step_stiffs = get_stiffs('heli', hex_seq)
-        for j in range(6):
-            diff = helix['heli_params'][step_n][j] - step_eql_params[j]
-            energy = 0.5 * step_stiffs[j] * pow(diff, 2)
-            diffs_of_step.append(diff)
-            energy_of_step.append(energy)
-        energys[step_n] = energy_of_step
-        differences[step_n] = diffs_of_step
-        stiffnesses[step_n] = step_stiffs
-        equalibrium_params[step_n] = step_eql_params
-    return(energys, stiffnesses, equalibrium_params, differences)
+#     seq = helix['strand_sequences'][0]
+#     for step_n in range(0, len(helix['heli_params'])):
+#         diffs_of_step = []
+#         energy_of_step = []
+#         hex_seq = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(step_n-2,step_n+4)])
+#         step_eql_params = get_equalibrium_params('heli', hex_seq)
+#         step_stiffs = get_stiffs('heli', hex_seq)
+#         for j in range(6):
+#             diff = helix['heli_params'][step_n][j] - step_eql_params[j]
+#             energy = 0.5 * step_stiffs[j] * pow(diff, 2)
+#             diffs_of_step.append(diff)
+#             energy_of_step.append(energy)
+#         energys[step_n] = energy_of_step
+#         differences[step_n] = diffs_of_step
+#         stiffnesses[step_n] = step_stiffs
+#         equalibrium_params[step_n] = step_eql_params
+#     return(energys, stiffnesses, equalibrium_params, differences)
 
 def compare_bp_to_eql(helix):   # calculate the offset energy for all base pair parameters compared to equalibrium
     differences = [[0,0,0,0,0,0]] * len(helix['bp_params'])
@@ -230,22 +234,22 @@ def calculate_displacement_energy(helix):
     energys = {
         'bp'   : compare_bp_to_eql(helix)[0],
         'step' : compare_steps_to_eql(helix)[0], 
-        'heli' : compare_heli_to_eql(helix)[0]
+        # 'heli' : compare_heli_to_eql(helix)[0]
     }
     stiffs = {
         'bp'   : compare_bp_to_eql(helix)[1],
         'step' : compare_steps_to_eql(helix)[1],
-        'heli' : compare_heli_to_eql(helix)[1]
+        # 'heli' : compare_heli_to_eql(helix)[1]
     }
     equalibrium_params = {
         'bp'   : compare_bp_to_eql(helix)[2],
         'step' : compare_steps_to_eql(helix)[2], 
-        'heli' : compare_heli_to_eql(helix)[2]
+        # 'heli' : compare_heli_to_eql(helix)[2]
     }
     differences = {
         'bp'   : compare_bp_to_eql(helix)[3],
         'step' : compare_steps_to_eql(helix)[3], 
-        'heli' : compare_heli_to_eql(helix)[3]
+        # 'heli' : compare_heli_to_eql(helix)[3]
     }
 
     return (energys, stiffs, equalibrium_params, differences)
@@ -261,7 +265,7 @@ def calculate_displacement_energy_alternate_sequence(helix, sequence):   # assum
     energys = {
         'bp'   : compare_bp_to_eql(helix_cpy)[0],
         'step' : compare_steps_to_eql(helix_cpy)[0], 
-        'heli' : compare_heli_to_eql(helix_cpy)[0]
+        # 'heli' : compare_heli_to_eql(helix_cpy)[0]
     }
     return (energys)
 
@@ -278,7 +282,7 @@ def write_tcl_representation_script(helices):   # the display_energys.tcl file c
             energy_sums = [sum(i) for i in helix['energys']['bp']]
             color_param_bp = [i*COLORING_FACTOR for i in energy_sums]
 
-            energy_sums = [sum(helix['energys']['step'][i]) + sum(helix['energys']['heli'][i]) for i in range(len(helix['energys']['step']))]
+            energy_sums = [ sum(helix['energys']['step'][i])  for i in range(len(helix['energys']['step']))]
             color_param_step = [i*COLORING_FACTOR for i in energy_sums]
 
             selection_string = '"backbone and not name OP1 OP2"'
@@ -328,7 +332,7 @@ def write_tcl_representation_script(helices):   # the display_energys.tcl file c
 
 def sum_all_offset_energys(offset_energys):  
     energy_sums_bp = [sum(i) for i in offset_energys['bp']]
-    energy_sums_step = [(sum(offset_energys['step'][i]) + sum(offset_energys['heli'][i])) for i in range(len(offset_energys['step']))]
+    energy_sums_step = [(sum(offset_energys['step'][i]) ) for i in range(len(offset_energys['step']))] # + sum(offset_energys['heli'][i])
     offset_energys = energy_sums_bp[0] + energy_sums_step[0]
     return offset_energys
 
@@ -362,18 +366,38 @@ def find_energy_minimum_sequence(helices):  # for each helix and assuming the sa
                     f.write(str(helix['strand_res_inds'][0][i]+1) + " D" + newRes + '\n')
                     f.write(str(helix['strand_res_inds'][1][i]+1) + " D" + complements[newRes] + '\n')
             print(oldSeq + ' E='+str(old_Energy)+ " < old  |  new > "+ new_seq + ' E='+str(new_Energy)) 
+
             with open('energy_log.txt', 'a') as f2:
-                f2.write(str(old_Energy) + "\n")
+                f2.write(str(old_Energy) + " " + str(new_Energy) + "\n")
 
 def get_helix_snippet(helix, start_bp, end_bp):
     if end_bp is None:
         end_bp = len(helix['strand_sequences'][0])
+    if end_bp > 0:
+        step_end_ind = end_bp-1
+    else:
+        step_end_ind = end_bp
+    stiffs = {
+            'bp' : helix['stiffs']['bp'][start_bp:end_bp],
+            'step' : helix['stiffs']['step'][start_bp:step_end_ind],
+            # 'heli' : helix['stiffs']['heli'][start_bp:end_bp-1]
+        }
+    equalibrium_params = {
+            'bp' : helix['eq_params']['bp'][start_bp:end_bp],
+            'step' : helix['eq_params']['step'][start_bp:step_end_ind],
+            # 'heli' : helix['eq_params']['heli'][start_bp:end_bp-1]
+        }
     helix_snippet = {
         'strand_sequences' : [ helix['strand_sequences'][0][start_bp:end_bp] , helix['strand_sequences'][1][start_bp:end_bp] ],
         'strand_res_inds' : [ helix['strand_res_inds'][0][start_bp:end_bp] , helix['strand_res_inds'][1][start_bp:end_bp] ],
         'bp_params' : helix['bp_params'][start_bp:end_bp],
-        'step_params' : helix['step_params'][start_bp:end_bp-1],
-        'heli_params' : helix['heli_params'][start_bp:end_bp-1],
+        'step_params' : helix['step_params'][start_bp:step_end_ind],
+        # 'heli_params' : helix['heli_params'][start_bp:end_bp-1],
+        'bp_params_sd' : helix['bp_params_sd'][start_bp:end_bp],
+        'step_params_sd' : helix['step_params_sd'][start_bp:step_end_ind],
+        # 'heli_params_sd' : helix['heli_params_sd'][start_bp:end_bp-1],        
+        'stiffs' : stiffs, 
+        'eq_params' : equalibrium_params,
         'energys' : None
     }
     return helix_snippet
@@ -387,13 +411,15 @@ def print_res_ind_of_Helix(helix):
 def calculate_total_energy(helices):
     total_energy = 0
     for helix in helices:
+        if helix['energys'] is None:
+            helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)
         energy_sums_bp = [sum(i) for i in helix['energys']['bp']]
-        energy_sums_step = [(sum(helix['energys']['step'][i]) + sum(helix['energys']['heli'][i])) for i in range(len(helix['energys']['step']))]
+        energy_sums_step = [(sum(helix['energys']['step'][i]) ) for i in range(len(helix['energys']['step']))] #+ sum(helix['energys']['heli'][i])
         total_energy += sum(energy_sums_bp) + sum(energy_sums_step)
     return total_energy
 
 
-root_dir = Path(__file__).resolve().parents[1]
+
 equalibrium_params = load_equalibrium_params()
 stiffs = load_stiffs()
 
@@ -407,19 +433,21 @@ if __name__ == "__main__":
         helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)
         helices.append(helix)
 
-    print_helix_text_reprensentation(helices[0])
-    
+
     total_energy = calculate_total_energy(helices)
-    print("total Energy of Structure: " + str(total_energy))
+    print_helix_text_reprensentation(helices[0])
     with open('energy_log.txt', 'a') as f2:
         f2.write(str(total_energy) + " ")
 
-    helices = [get_helix_snippet(helices[0], 1, 16)]
-
-    with open('energy_log.txt', 'a') as f2:
+    helices_temp = [get_helix_snippet(helices[0], 1, -1)]
+    total_energy = calculate_total_energy(helices_temp)
+    
+    with open('energy_log.txt', 'a') as f2:     # emergy_log line structure: <total energy of whole helix> <total energy of helix without terminal base pairs> <total energy of central hexamer> <total energy of central hexamer with alternate sequence with minimal energy (unsimulated)>
         f2.write(str(total_energy) + " ")
-        
-    helices = [get_helix_snippet(helices[0], 5, 12)]
+
+    helices = [get_helix_snippet(helices[0], 5, -5)]
+
+    print_helix_text_reprensentation(helices[0])
 
     for helix in helices:
         helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)

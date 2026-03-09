@@ -16,5 +16,4 @@ rm -f Offset_energy_calculator/MD_Results/*
 rm -f energy_log.txt
 rm -f matplotlib_analysis/Equalibrium_Offset_Vectors_graph.pdf
 rm -f matplotlib_analysis/slide_probability_iteration_0.agr
-rm -f run.txt
 rm -f input/*
