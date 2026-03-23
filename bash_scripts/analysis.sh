@@ -11,7 +11,9 @@ while read -r line; do
    
    ((i++))
 # done < "$project_root/previous_iteration/iteration_3/cpptraj_base_pairing.txt"
-done < "$project_root/Helix_separator/cpptraj_base_pairing.txt"
+done < "$project_root/result_data/sequence_1/iteration_1/cpptraj_base_pairing.txt"
 rm "$project_root/tmp_cpptraj.in"
+
+#xmgrace "$project_root/matplotlib_analysis/slide_probability_iteration_0.agr" -hardcopy -hdevice PNG -o "$project_root/matplotlib_analysis/slide_probability_iteration_0.png"
 
 xmgrace "$project_root/matplotlib_analysis/slide_probability_iteration_0.agr"

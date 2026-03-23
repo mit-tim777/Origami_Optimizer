@@ -8,3 +8,6 @@
   - validate minimization with big number of starting sequences
 
   - start simulation on a holiday junction
+
+170917
+abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmno

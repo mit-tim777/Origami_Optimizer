@@ -32,7 +32,7 @@ iterations = [0,1,2,3]
 # Project root (two levels up from this file).
 root_dir = Path(__file__).resolve().parents[1]
 # Folder that contains the iteration_* directories.
-prev_dir = root_dir / "result_data" / "sequence_2"
+prev_dir = root_dir / "result_data" / "sequence_1"
 
 
 # Collect iteration directories and sort by their numeric suffix.
@@ -48,8 +48,8 @@ step_keys = ['shift', 'slide', 'rise', 'tilt', 'roll', 'twist']
 # Read helical parameters and initialize helices
 helix_by_iteration = [] # this is for now only one helix per iteration which needs to be extended later
 for d in iter_dirs:
-    md_file = file = d / "MD_Results" / "MD_averaged_parameters_of_helix_0.dat"
-
+    md_file  = d / "Offset_energy_calculator" / "MD_Results" / "MD_averaged_parameters_of_helix_0.dat"
+# result_data/sequence_1/iteration_1/Offset_energy_calculator/MD_Results/MD_averaged_parameters_of_helix_0.dat
     helix = calc.extract_data(md_file)
     helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calc.calculate_displacement_energy(helix)
     helix_by_iteration.append(helix)

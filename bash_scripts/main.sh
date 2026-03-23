@@ -1,10 +1,11 @@
 #!/bin/bash
 
+set -e
 
 bash bash_scripts/clear.sh
 
 
-for i in {1..10}; do
+for i in {1..20}; do
     echo "-----------------------------------------------------------------------------------------------------------------------------------"
     cp template_pdb/*.pdb input/input.pdb
 

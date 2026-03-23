@@ -1,8 +1,8 @@
-#parm previous_iteration/iteration_2/input.prmtop
+#parm re/iteration_2/input.prmtop
 #trajin previous_iteration/iteration_2/trajectorys/mdcrd.9md 1 10000
 
-parm MD_simulation/input.prmtop
-trajin MD_simulation/trajectorys/mdcrd.9md 1 1000
+parm result_data/sequence_1/iteration_1/input.prmtop
+trajin result_data/sequence_1/iteration_1/trajectorys/mdcrd_restrained.9md
 
 nastruct data specifiedbp pairs $range_i hbcut 100.0 origincut 100.0 zcut 100.0 zanglecut 180
 go

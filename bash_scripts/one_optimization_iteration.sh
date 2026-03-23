@@ -1,4 +1,6 @@
 # #!/bin/bash
+# set -eE
+# trap 'echo "Error on line $LINENO"' ERR
 
 echo " iteration $1 --------------------------------------------------------------------"
 mkdir previous_iteration/iteration_$1
