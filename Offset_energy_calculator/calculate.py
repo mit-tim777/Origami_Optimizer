@@ -1,11 +1,12 @@
 import csv
 from pathlib import Path
-import re
 import numpy as np
-import os, os.path
-import random
 import copy
-from uncertainties import ufloat
+
+import scipy
+from scipy import sparse
+from scipy.optimize import NonlinearConstraint
+# from uncertainties import ufloat
 
 root_dir = Path(__file__).resolve().parents[1] #/ "result_data" / "sequence_1" / "iteration_1"
 
@@ -25,17 +26,12 @@ def print_helix_text_reprensentation(helix):
     print()
     print()
 
-
 def extract_data(filename): # read out the averaged helical parameters for one helix
 
     with open(filename) as f:
         
         bp_params = []  # [ [shear,stretch,stagger,buckle,prop,open] , same for basepair 2 , ...]
         step_params = [] # [ [shift,slide,rise,tilt,roll,twist] , same for step 2 , ...]  ( bp1 step1 bp2 step2 ... ) 
-        heli_params = [] # [ [x_disp,y_disp,hrise,incl,tip,htwist] , step 2 , ...]
-        bp_params_sd = []  # standard deviations of the parameters across the trajectory
-        step_params_sd = []
-        heli_params_sd = []
         strands = []
 
         meta_data = f.readline().split()
@@ -51,39 +47,16 @@ def extract_data(filename): # read out the averaged helical parameters for one h
                 continue
             bp_params.append(params_raw[1:7])
             step_params.append(params_raw[7:13])
-            #heli_params.append(params_raw[13:19])
-            bp_params_sd.append(params_raw[19:25])
-            step_params_sd.append(params_raw[25:31])
-            #heli_params_sd.append(params_raw[31:37])
         
         step_params.pop(-1)
-        #heli_params.pop(-1)
-        step_params_sd.pop(-1)
-        #heli_params_sd.pop(-1)
-        
-        # Build ufloat containers upfront so that every downstream path uses the same uncertainty-aware values.
-        bp_params_u = []
-        for bp_row, bp_sd_row in zip(bp_params, bp_params_sd):
-            bp_params_u.append([ufloat(v, sem_from_sd(sd)) for v, sd in zip(bp_row, bp_sd_row)])
-
-        step_params_u = []
-        for step_row, step_sd_row in zip(step_params, step_params_sd):
-            step_params_u.append([ufloat(v, sem_from_sd(sd)) for v, sd in zip(step_row, step_sd_row)])
 
         helix = {
             'strand_sequences' : strands,
             'strand_res_inds' : strand_res_inds,
-            'bp_params' : bp_params,
-            'step_params' : step_params,
-          #  'heli_params' : heli_params,
-            'bp_params_sd' : bp_params_sd,
-            'step_params_sd' : step_params_sd,
-            'bp_params_u' : bp_params_u,
-            'step_params_u' : step_params_u,
-         #   'heli_params_sd' : heli_params_sd,
-            'energys' : None,
-            'stiffs' : None,
-            'eq_params' : None
+            'w' : build_w_vector(bp_params, step_params),
+            'wKw' : None,
+            'w_eq' : None,
+            'K' : None
         }
 
 
@@ -95,6 +68,56 @@ def safe_float(x):
     except ValueError:
         return x 
 
+def build_w_vector(bp_params, step_params):
+    sequence_length = len(bp_params)
+    if step_params and len(step_params) != sequence_length - 1:
+        raise ValueError("Step parameters must contain one fewer entry than base-pair parameters.")
+
+    matrix_size = 6 * sequence_length + 6 * max(0, sequence_length - 1)
+    w = np.zeros(matrix_size)
+
+    for bp_n in range(sequence_length):
+        w[12 * bp_n : 6 + 12 * bp_n] = bp_params[bp_n]
+
+    for step_n in range(max(0, sequence_length - 1)):
+        w[6 + 12 * step_n : 12 * (step_n + 1)] = step_params[step_n]
+
+    return w
+
+
+def slice_w_vector(w_vector, start_bp, end_bp):
+    if end_bp < 0:
+        end_bp = ( len(w_vector) // 12 + 1 ) + end_bp
+
+    snippet_length = end_bp - start_bp
+
+    matrix_size = 6 * snippet_length + 6 * (snippet_length - 1)
+    snippet_w = np.zeros(matrix_size)
+
+    for bp_n in range(snippet_length):
+        global_bp_n = start_bp + bp_n
+        snippet_w[12 * bp_n : 6 + 12 * bp_n] = w_vector[12 * global_bp_n : 6 + 12 * global_bp_n]
+
+    for step_n in range(max(0, snippet_length - 1)):
+        global_step_n = start_bp + step_n
+        snippet_w[6 + 12 * step_n : 12 * (step_n + 1)] = w_vector[6 + 12 * global_step_n : 12 * (global_step_n + 1)]
+
+    return snippet_w
+
+def build_equilibrium_w_vector(sequence):
+    matrix_size = 6 * len(sequence) + 6 * max(0, len(sequence) - 1)
+    w_eq = np.zeros(matrix_size)
+
+    for bp_n in range(len(sequence)):
+        hep_seq = ''.join([sequence[i] if (i in range(len(sequence))) else '-' for i in range(bp_n - 3, bp_n + 4)])
+        w_eq[12 * bp_n : 6 + 12 * bp_n] = get_equalibrium_params('bp', hep_seq)
+
+    for step_n in range(len(sequence) - 1):
+        hex_seq = ''.join([sequence[i] if (i in range(len(sequence))) else '-' for i in range(step_n - 2, step_n + 4)])
+        w_eq[6 + 12 * step_n : 12 * (step_n + 1)] = get_equalibrium_params('step', hex_seq)
+
+    return w_eq
+
 MD_SAMPLE_SIZE = 1000  # number of frames used in the average; adjust if needed
 
 def sem_from_sd(standard_dev, n=MD_SAMPLE_SIZE):
@@ -102,40 +125,18 @@ def sem_from_sd(standard_dev, n=MD_SAMPLE_SIZE):
         return 0.0
     return float(standard_dev) / np.sqrt(n)
 
-
 def load_equalibrium_params(): # load the equalibrium parameters from the paper "Sequence-Dependent Shape and Stiffness of DNA and RNA Double Helices"
     with open(csv_directory / "coords_grooves_DNA_hexamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_step_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    # with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_grooves_DNA_hexamers_table.csv") as f:
-    #     data = csv.reader(f)
-    #     equalibrium_heli_params = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
     with open(csv_directory / "coords_grooves_DNA_heptamers_table.csv") as f:
         data = csv.reader(f)
         equalibrium_bp_params = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
     equalibrium_params = {
         'bp' : equalibrium_bp_params,
         'step' : equalibrium_step_params,
-        # 'heli' : equalibrium_heli_params
     }
     return equalibrium_params
-
-def load_stiffs():  # load the quadratic offset energy stiffness
-    with open(csv_directory / "coords_stiffs_DNA_hexamers_table.csv") as f:
-        data = csv.reader(f)
-        step_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    # with open(root_dir / "Offset_energy_calculator" / "hexamers_csv" / "DNA" / "coords_stiffs_DNA_hexamers_table.csv") as f:
-    #     data = csv.reader(f)
-    #     heli_stiffs = { row[0] : [safe_float(i) for i in row[7:13]] for row in data }
-    with open(csv_directory / "coords_stiffs_DNA_heptamers_table.csv") as f:
-        data = csv.reader(f)
-        bp_stiffs = { row[0] : [safe_float(i) for i in row[1:7]] for row in data }
-    stiffs = {
-        'bp'   :   bp_stiffs,
-        'step' : step_stiffs,
-        # 'heli' : heli_stiffs
-    }
-    return stiffs
 
 def get_all_possible_sequences(sequence):   # given any sequence of any length and '-' as placeholder, return all possible sequences by replacing '-' with A,T,C or G
     sequence = "".join(sequence)
@@ -163,189 +164,14 @@ def get_equalibrium_params(param_type, sequence):   # for sequences with placeho
         avg_params[i] /= len(possible_sequences)
 
     return avg_params
-
-def get_stiffs(param_type, sequence):   # for sequences with placeholders '-', return average stiffness parameters ( nessasary since stiffness parameters are always defined for hexamers or heptamers) 
-    possible_sequences = get_all_possible_sequences(sequence)
-    avg_params = [0]*6
-
-    for seq in possible_sequences:
-        for i in range(6):
-            avg_params[i] += stiffs[param_type][seq][i]
-
-    for i in range(6):
-        avg_params[i] /= len(possible_sequences)
-
-    return avg_params
   
-def compare_steps_to_eql(helix):  # calculate the offset energy for all step parameters compared to equalibrium
-    differences = [[0]*6 for _ in range(len(helix['step_params']) )]
-    stiffnesses = [[0]*6 for _ in range(len(helix['step_params']) )]
-    energys = [[0]*6 for _ in range(len(helix['step_params']) )]
-    equalibrium_params = [[0]*6 for _ in range(len(helix['step_params']) )]
-
-    seq = helix['strand_sequences'][0]
-    for step_n in range(0, len(helix['step_params'])):
-        diffs_of_step = []
-        energys_of_step = []
-        hex_seq = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(step_n-2,step_n+4)])
-        step_eql_params = get_equalibrium_params('step', hex_seq)
-        step_stiffs = get_stiffs('step', hex_seq)
-        for j in range(6):
-            meas_u = helix['step_params_u'][step_n][j]
-            eq_val = step_eql_params[j]
-            diff = meas_u - eq_val
-            energy = 0.5 * step_stiffs[j] * diff**2
-            diffs_of_step.append(diff)
-            energys_of_step.append(energy)
-        energys[step_n] = energys_of_step
-        differences[step_n] = diffs_of_step
-        stiffnesses[step_n] = step_stiffs
-        equalibrium_params[step_n] = step_eql_params
-    return(energys, stiffnesses, equalibrium_params, differences)
-
-def compare_bp_to_eql(helix):   # calculate the offset energy for all base pair parameters compared to equalibrium
-    differences = [[0]*6 for _ in range(len(helix['bp_params']) )]
-    stiffnesses = [[0]*6 for _ in range(len(helix['bp_params']) )]
-    energys = [[0]*6 for _ in range(len(helix['bp_params']) )]
-    equalibrium_params = [[0]*6 for _ in range(len(helix['bp_params']) )]
-
-    seq = helix['strand_sequences'][0]
-    for bp_n in range(0, len(helix['bp_params'])):
-        diffs_of_bp = []
-        energys_of_bp = []
-        hep_seq = ''.join([ seq[i] if (i in range(len(seq))) else '-' for i in range(bp_n-3,bp_n+4)])
-        bp_eql_params = get_equalibrium_params('bp',hep_seq)
-        bp_stiffs = get_stiffs('bp',hep_seq)
-        for j in range(6):
-            meas_u = helix['bp_params_u'][bp_n][j]
-            eq_val = bp_eql_params[j]
-            diff = meas_u - eq_val
-            energy = 0.5 * bp_stiffs[j] * diff**2
-            diffs_of_bp.append(diff)
-            energys_of_bp.append(energy)
-        energys[bp_n] = energys_of_bp
-        differences[bp_n] = diffs_of_bp
-        stiffnesses[bp_n] = bp_stiffs
-        equalibrium_params[bp_n] = bp_eql_params
-    return(energys, stiffnesses, equalibrium_params, differences)
-
-
-def calculate_displacement_energy(helix):  
-    bp_res = compare_bp_to_eql(helix)
-    step_res = compare_steps_to_eql(helix)
-
-    energys = {
-        'bp'   : bp_res[0],
-        'step' : step_res[0], 
-        # 'heli' : compare_heli_to_eql(helix)[0]
-    }
-    stiffs = {
-        'bp'   : bp_res[1],
-        'step' : step_res[1],
-        # 'heli' : compare_heli_to_eql(helix)[1]
-    }
-    equalibrium_params = {
-        'bp'   : bp_res[2],
-        'step' : step_res[2], 
-        # 'heli' : compare_heli_to_eql(helix)[2]
-    }
-    differences = {
-        'bp'   : bp_res[3],
-        'step' : step_res[3], 
-        # 'heli' : compare_heli_to_eql(helix)[3]
-    }
-
-    return (energys, stiffs, equalibrium_params, differences)
-
-def calculate_displacement_energy_alternate_sequence(helix, sequence):   # assuming the helix had another sequence, then calculate the displacement energy
-    complements = {
-        'A' : 'T', 'T' : 'A', 'C' : 'G', 'G' : 'C'
-    }
-    complementary = "".join([complements[i] for i in sequence])
-    helix_cpy = copy.deepcopy(helix)
-    helix_cpy['strand_sequences'] = [ "".join(sequence) , complementary]
-
-    energys = {
-        'bp'   : compare_bp_to_eql(helix_cpy)[0],
-        'step' : compare_steps_to_eql(helix_cpy)[0], 
-        # 'heli' : compare_heli_to_eql(helix_cpy)[0]
-    }
-    return (energys)
-
-def write_tcl_representation_script(helices):
-    COLORING_FACTOR = 0.5
-    with open('display_energys.tcl', 'w') as f:
-        # Global Setup
-        f.write('mol new output.pdb \n')
-        f.write('set molid [lindex [expr {[molinfo list]}] end] \n')
-        f.write('color scale method GWR \n')
-        f.write('color scale min 0.3 \n')
-        f.write('color scale midpoint 0.5 \n')
-        f.write('color scale max 1 \n\n')
-
-        for helix in helices:
-            energy_sums_bp = [sum(i) for i in helix['energys']['bp']]
-            energy_sums_bp = [float(e.nominal_value if hasattr(e, 'nominal_value') else e) for e in energy_sums_bp]
-            color_param_bp = [i * COLORING_FACTOR for i in energy_sums_bp]
-
-            energy_sums_step = [sum(helix['energys']['step'][i]) for i in range(len(helix['energys']['step']))]
-            energy_sums_step = [float(e.nominal_value if hasattr(e, 'nominal_value') else e) for e in energy_sums_step]
-            color_param_step = [i * COLORING_FACTOR for i in energy_sums_step]
-
-            # 1. Create per-residue backbone representations
-            for i in range(len(helix['strand_res_inds'][0]) - 1):
-                selection_string = f'"backbone and residue {helix["strand_res_inds"][0][i]} {helix["strand_res_inds"][1][i]} and not name OP1 OP2"'
-                
-                f.write('mol addrep $molid \n')
-                f.write('set repindex [expr {[molinfo $molid get numreps] - 1}] \n')
-                f.write(f'mol modselect $repindex $molid {selection_string} \n')
-                f.write(f'mol modstyle $repindex $molid Licorice 0.8 12.0 \n')
-                f.write(f'mol modcolor $repindex $molid user \n')
-                
-                # --- LOCK THE COLOR RANGE ---
-                f.write(f'mol colupdate $repindex $molid 0 \n')
-                f.write(f'mol scaleminmax $molid $repindex 0.3 1.0 \n')
-                
-                f.write(f'set sel [atomselect $molid {selection_string}] \n')
-                f.write(f'$sel set user {color_param_step[i]} \n')
-                f.write(f'$sel delete \n\n')
-            
-            # 2. Create per-residue non-backbone representations
-            for i in range(len(helix['strand_res_inds'][0])):
-                selection_string = f'"not backbone and residue {helix["strand_res_inds"][0][i]} {helix["strand_res_inds"][1][i]} and not hydrogen"'
-                
-                f.write('mol addrep $molid \n')
-                f.write('set repindex [expr {[molinfo $molid get numreps] - 1}] \n')
-                f.write(f'mol modselect $repindex $molid {selection_string} \n')
-                f.write(f'mol modstyle $repindex $molid VDW 0.5 10.0 \n')
-                f.write(f'mol modcolor $repindex $molid user \n')
-
-                # --- LOCK THE COLOR RANGE ---
-                f.write(f'mol colupdate $repindex $molid 0 \n')
-                f.write(f'mol scaleminmax $molid $repindex 0.3 1.0 \n')
-
-                f.write(f'set sel [atomselect $molid {selection_string}] \n')
-                f.write(f'$sel set user {color_param_bp[i]} \n')
-                f.write(f'$sel delete \n\n')
-
-            f.write('\n')
-
-def sum_all_offset_energys(offset_energys):  
-    # some callers may pass calculate_displacement_energy() tuple; take first item if needed.
-    if not isinstance(offset_energys, dict) and len(offset_energys) > 0:
-        offset_energys = offset_energys[0]
-
-    energy_sums_bp = [sum(i) for i in offset_energys['bp']]
-    energy_sums_step = [sum(offset_energys['step'][i]) for i in range(len(offset_energys['step']))] # + sum(offset_energys['heli'][i])
-    return sum(energy_sums_bp) + sum(energy_sums_step)
-     
-
-def find_energy_minimum_sequence(helices, context_helices):  # for each helix and assuming the same average helix parameters as with old sequence find the sequence with minimal offset energy and write new seuence to mutation information
-    complements = {
-        'A' : 'T', 'T' : 'A', 'C' : 'G', 'G' : 'C'
-    }
+complements = {
+    'A' : 'T', 'T' : 'A', 'C' : 'G', 'G' : 'C'
+}
+def find_energy_minimum_sequence(helices ):  # for each helix and assuming the same average helix parameters as with old sequence find the sequence with minimal offset energy and write new seuence to mutation information
     with open('Mutate/mutation_information.txt', 'w') as f:
-        for helix, context_helix in zip(helices, context_helices):
+        # for helix, context_helix in zip(helices, context_helices):
+        for helix in helices:
             oldSeq = helix['strand_sequences'][0]
             possible_new_sequences = get_all_possible_sequences('-' * len(oldSeq))
             offset_energys_for_all_possible_sequences = []
@@ -355,17 +181,18 @@ def find_energy_minimum_sequence(helices, context_helices):  # for each helix an
             possible_new_sequences = [seq for seq in possible_new_sequences if abs(seq.count('A') + seq.count('T') - old_AT_count) <= CONTENT_CHANGE_ALLOWED]
 
             for seq in possible_new_sequences:
-                seq_with_context = context_helix['strand_sequences'][0][:5] + seq + context_helix['strand_sequences'][0][-5:]
-                offset_energys_for_all_possible_sequences.append(sum_all_offset_energys(calculate_displacement_energy_alternate_sequence(context_helix, seq_with_context)))
+                # seq_with_context = context_helix['strand_sequences'][0][:5] + seq + context_helix['strand_sequences'][0][-5:]
+                offset_energys_for_all_possible_sequences.append(calculate_wKw(helix, sequence=seq))
 
             best_index = min(range(len(offset_energys_for_all_possible_sequences)), key=lambda k: offset_energys_for_all_possible_sequences[k].nominal_value if hasattr(offset_energys_for_all_possible_sequences[k], 'nominal_value') else offset_energys_for_all_possible_sequences[k])
+
             new_seq = possible_new_sequences[best_index]
 
-            old_Energy = sum_all_offset_energys(calculate_displacement_energy(context_helix))
+            old_Energy = calculate_wKw(helix)
             new_Energy = offset_energys_for_all_possible_sequences[best_index]
             
-            # sequence_and_energy = list(zip(possible_new_sequences, offset_energys_for_all_possible_sequences))
-            # sequence_and_energy.sort(key=lambda x: x[1])
+            sequence_and_energy = list(zip(possible_new_sequences, offset_energys_for_all_possible_sequences))
+            sequence_and_energy.sort(key=lambda x: x[1])
             # print("All possible sequences and their energies (sorted):")
             # for seq, energy in sequence_and_energy:
             #     print(f"Sequence: {seq}, Energy: {energy}")
@@ -376,35 +203,25 @@ def find_energy_minimum_sequence(helices, context_helices):  # for each helix an
                     f.write(str(helix['strand_res_inds'][1][i]+1) + " D" + complements[newRes] + '\n')
             print(oldSeq + ' E='+str(old_Energy)+ " < old  |  new > "+ new_seq + ' E='+str(new_Energy)) 
 
-            with open('energy_log.txt', 'a') as f2:
-                f2.write(str(old_Energy) + " " + str(new_Energy) + "\n")
+            # with open('energy_log.txt', 'a') as f2:
+            #     f2.write(str(old_Energy) + " " + str(new_Energy) + "\n")
 
 def get_helix_snippet(helix, start_bp, end_bp):
-    if end_bp is None:
-        end_bp = len(helix['strand_sequences'][0])
-    if end_bp > 0:
-        step_end_ind = end_bp-1
-    else:
-        step_end_ind = end_bp
-    stiffs = {
-            'bp' : helix['stiffs']['bp'][start_bp:end_bp],
-            'step' : helix['stiffs']['step'][start_bp:step_end_ind],
-        }
-    equalibrium_params = {
-            'bp' : helix['eq_params']['bp'][start_bp:end_bp],
-            'step' : helix['eq_params']['step'][start_bp:step_end_ind],
-        }
+
+    snippet_sequence = helix['strand_sequences'][0][start_bp:end_bp]
+    if(len(snippet_sequence) < 6):
+        print("Warning: snippet sequence is less than 6 base pairs long")
+        return None
+    
+    snippet_w = slice_w_vector(helix['w'], start_bp, end_bp)
+    snippet_w_eq = slice_w_vector(helix['w_eq'], start_bp, end_bp)
+
     helix_snippet = {
-        'strand_sequences' : [ helix['strand_sequences'][0][start_bp:end_bp] , helix['strand_sequences'][1][start_bp:end_bp] ],
+        'strand_sequences' : [ snippet_sequence, helix['strand_sequences'][1][start_bp:end_bp] ],
         'strand_res_inds' : [ helix['strand_res_inds'][0][start_bp:end_bp] , helix['strand_res_inds'][1][start_bp:end_bp] ],
-        'bp_params' : helix['bp_params'][start_bp:end_bp],
-        'step_params' : helix['step_params'][start_bp:step_end_ind],
-        'bp_params_sd' : helix['bp_params_sd'][start_bp:end_bp],
-        'step_params_sd' : helix['step_params_sd'][start_bp:step_end_ind],
-        'bp_params_u' : helix['bp_params_u'][start_bp:end_bp],
-        'step_params_u' : helix['step_params_u'][start_bp:step_end_ind],
-        'stiffs' : stiffs, 
-        'eq_params' : equalibrium_params,
+        'w' : snippet_w,
+        'w_eq' : snippet_w_eq,
+        'K' : None,
         'energys' : None
     }
     return helix_snippet
@@ -418,123 +235,356 @@ def print_res_ind_of_Helix(helix):
 def calculate_total_energy(helices):
     total_energy = 0
     for helix in helices:
-        if helix['energys'] is None:
-            helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)
-        energy_sums_bp = [sum(i) for i in helix['energys']['bp']]
-        energy_sums_step = [sum(helix['energys']['step'][i]) for i in range(len(helix['energys']['step']))] #+ sum(helix['energys']['heli'][i])
-        helix_energy = sum(energy_sums_bp) + sum(energy_sums_step)
-        total_energy += helix_energy
+        total_energy += calculate_wKw(helix)
     return total_energy
 
-def construct_stiffness_matrix(sequence):
+def calculate_wKw(helix):  # calculate the quadratic energy w^T K w for a helix, where w is the vector of displacements from equalibrium and K is the stiffness matrix; if sequence is provided, use that sequence instead of the one in the helix to determine K and equalibrium parameters (useful for calculating energy of alternate sequences without needing to recalculate displacements)
+    
+    sequence = helix['strand_sequences'][0]
     matrix_size = (6*len(sequence) + 6 * (len(sequence)-1))  # 6 parameters per base pair and 6 parameters per step, with one less step than base pairs
-    K = np.zeros((matrix_size, matrix_size))
-    K_layered = [[[] for _ in range(matrix_size)] for _ in range(matrix_size)]
     hexamers = [ sequence[i:i+6] for i in range(len(sequence)-5) ]
 
-    with open(csv_directory / "K_intra_inter_DNA.csv") as Kf:
-        data_raw = csv.reader(Kf)
-        data = [row for row in data_raw]
-        for n, hexamer in enumerate(hexamers): 
-            # get all lines that start with hexamer and read the 66x66 block of stiffness values that follow
-            K_block = []
+    block_size = 66
+    block_rows = np.arange(block_size)
+    rows = []
+    cols = []
+    values = []
+    counts = []
 
-            for row in data:
-                if row[0] == hexamer:
-                    K_block.append(list(map(float, row[1:67])))
-            for i, row in enumerate(K_block):
-                for j, value in enumerate(row):
-                    K_layered[12*n+i][12*n+j].append(value)
+    for block_index, hexamer in enumerate(hexamers):
+        # Assemble overlapping 66x66 blocks directly as sparse COO entries.
+        K_block = np.asarray(K_intra_inter_DNA[hexamer], dtype=float)
+        if K_block.shape != (block_size, block_size):
+            raise ValueError(
+                f"Expected a 66x66 stiffness block for {hexamer}, "
+                f"got {K_block.shape}"
+            )
 
-    # Now average the values in K_layered and fill the final stiffness matrix K
-    for i in range(matrix_size):
-        for j in range(matrix_size):
-            if K_layered[i][j]:  # if there are values to average
-                K[i][j] = sum(K_layered[i][j]) / len(K_layered[i][j])
-            else:
-                K[i][j] = 0.0  # or some default value if no data is available
+        row_indices, col_indices = np.meshgrid(
+            12 * block_index + block_rows,
+            12 * block_index + block_rows,
+            indexing='ij',
+        )
+        rows.append(row_indices.ravel())
+        cols.append(col_indices.ravel())
+        values.append(K_block.ravel())
+        counts.append(np.ones(block_size * block_size))
+
+    if rows:
+        row_indices = np.concatenate(rows)
+        col_indices = np.concatenate(cols)
+        K_sum = sparse.coo_matrix(
+            (np.concatenate(values), (row_indices, col_indices)),
+            shape=(matrix_size, matrix_size),
+        ).tocsr()
+        K_count = sparse.coo_matrix(
+            (np.concatenate(counts), (row_indices, col_indices)),
+            shape=(matrix_size, matrix_size),
+        ).tocsr()
+        K = K_sum.multiply(K_count.power(-1))
+    else:
+        K = sparse.csr_matrix((matrix_size, matrix_size))
+
+    cutoff = 0.44
+    K_dense = K.toarray()
+    eigenvalues, eigenvectors = np.linalg.eigh(K_dense)
+    corrected_eigenvalues = np.maximum(eigenvalues, cutoff)
+    K_corrected = (eigenvectors * corrected_eigenvalues) @ eigenvectors.T
+
+    # The eigendecomposition is dense; restore the half-bandwidth of the
+    # overlapping 66-parameter blocks before converting back to sparse form.
+    band_mask = np.abs(
+        np.arange(matrix_size)[:, None] - np.arange(matrix_size)[None, :]
+    ) < block_size
+    K_corrected[~band_mask] = 0.0
+    K = sparse.csr_matrix((K_corrected + K_corrected.T) / 2)
+
+    helix['w_eq'] = build_equilibrium_w_vector(sequence)
+
+    w_offset = helix['w'] - helix['w_eq']
+    energy = float(w_offset @ K.dot(w_offset))
+    helix['wKw'] = energy
+    helix['K'] = K
+    return energy
+
+def get_parms_of_type(param_type, w):
+    parnames = ['shift', 'slide', 'rise', 'tilt', 'roll', 'twist']
+    for i in range(len(w)//12):
+        yield w[6+12*i + parnames.index(param_type)]
+
+def rodrigues_matrix(axis, angle):
+    """Generates a 3x3 rotation matrix using Rodrigues' formula."""
+    axis = np.array(axis)
+    if np.linalg.norm(axis) < 1e-9:
+        return np.eye(3)
+    axis = axis / np.linalg.norm(axis)
     
-    P = get_projection_matrix(len(sequence))
-
-    w_eq = np.zeros((matrix_size))  
-    C = np.zeros((matrix_size))
-    for step_n in range(len(sequence)-1):
-        hex_seq = ''.join([ sequence[i] if (i in range(len(sequence))) else '-' for i in range(step_n-2,step_n+4)])
-        w_eq[6+12*step_n : 12*(step_n+1)] = get_equalibrium_params('step', hex_seq)
+    # Skew-symmetric matrix K
+    K = np.array([
+        [0, -axis[2], axis[1]],
+        [axis[2], 0, -axis[0]],
+        [-axis[1], axis[0], 0]
+    ])
     
-    for bp_n in range(len(sequence)):
-        hep_seq = ''.join([ sequence[i] if (i in range(len(sequence))) else '-' for i in range(bp_n-3,bp_n+4)])
-        w_eq[12*bp_n : 6+12*bp_n] = get_equalibrium_params('bp',hep_seq)
+    return np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+
+def get_rotation_matrix(step_parms):
+
+    tilt, roll, twist = np.deg2rad(step_parms[3:6])
+    L = np.sqrt(tilt**2 + roll**2)
+    o = np.arctan2(tilt, roll)
     
-
-
-
-    # for j, base in enumerate(sequence[:-1]):
-    #     hex_seq = ''.join([ sequence[i] if (i in range(len(sequence))) else '-' for i in range(j-2,j+4)])
-    #     hep_seq = ''.join([ sequence[i] if (i in range(len(sequence))) else '-' for i in range(j-3,j+4)])
-    #     print( "position " + str(j) + " base " + base + " hexamer seq: " + hex_seq + " heptamer seq: " + hep_seq)
-    #     for i, parmtype in enumerate(["shear","stretch","stagger","buckle","propeller","opening","shift","slide","rise","tilt","roll","twist"]):
-    #         print(f"{parmtype}: {w_eq[i+12*j]}")
-
-    # with open('projection_matrix.txt', 'w') as f:
-    #     for y in range(len(P[0])):
-    #         row = []
-    #         for x in range(len(P)):
-    #             row.append(str(int(P[x][y])))
-    #         f.write(''.join(row) + '\n')
-    return K
-
-def get_projection_matrix(sequence_length):
-    # This function should return the projection matrix P that maps the full parameter space to the sub
-    P = np.zeros((12*sequence_length-12, 12*sequence_length-6))
-    for i in range(12*sequence_length-18):
-        P[i][i] = 1
-    for i in range(sequence_length-2):
-        for j in range(6):
-            P[i*12+6+j][12*sequence_length-18+j] = -1
-    for i in range(6):
-        P[12*sequence_length-18+i][12*(sequence_length-1)+i] = 1
+    # Axis of tilt in the T1 xy-plane (offset by o - w/2)
+    theta_axis = o - twist/2
+    u = np.array([np.sin(theta_axis), np.cos(theta_axis), 0.0])
     
-    return P
+    # Full Rotation R = R_tilt(L) * R_twist(w)
+    R_tilt = rodrigues_matrix(u, L)
+    R_twist = rodrigues_matrix([0, 0, 1], twist)
+    R_full = np.dot(R_tilt, R_twist)
+    
+    return R_full
+
+def get_half_rotation_matrix(step_parms):
+    tilt, roll, twist = np.deg2rad(step_parms[3:6])
+    L = np.sqrt(tilt**2 + roll**2)
+    o = np.arctan2(tilt, roll)
+
+    theta_axis = o - twist/2
+    u = np.array([np.sin(theta_axis), np.cos(theta_axis), 0.0])
+    
+    R_half_tilt = rodrigues_matrix(u, L/2)
+    R_half_twist = rodrigues_matrix([0, 0, 1], twist/2)
+    R_half = np.dot(R_half_tilt, R_half_twist)
+
+    return R_half
+    
+def get_step_matrix(step_parms):
+    # Assemble 4x4 Matrix
+
+    M = np.eye(4)
+    M[:3, :3] = get_rotation_matrix(step_parms)  
+    M[:3, 3] = np.dot(get_half_rotation_matrix(step_parms), np.array(step_parms[:3]))  # Apply half rotation to the local displacement
+    return M
+
+def mutate_bp(helix, bp_index, new_bp_type):
+
+    helix = copy.deepcopy(helix)  # create a copy of the helix to avoid modifying the original
+
+    sequence = list(helix['strand_sequences'][0])
+    sequence[bp_index] = new_bp_type
+    helix['strand_sequences'][0] = ''.join(sequence)
+    helix['strand_sequences'][1] = ''.join([complements[base] for base in sequence])
+
+    calculate_wKw(helix)  # recalculate wKw and K for the new sequence
+
+    # Optimize step i-1, base pair i, and step i.
+    B = np.arange(12 * bp_index - 6, 12 * bp_index + 12)
+    first_step = np.arange(12 * bp_index - 6, 12 * bp_index)
+    intra_bp = np.arange(12 * bp_index, 12 * bp_index + 6)
+    second_step = np.arange(12 * bp_index + 6, 12 * bp_index + 12)
+
+    K = helix['K']
+    w = helix['w'] - helix['w_eq']
+
+    def objective(local_w):
+        trial_w = w.copy()
+        trial_w[B] = local_w
+        return float(trial_w @ K.dot(trial_w))
+
+    original_step_parameters = [
+        helix['w'][first_step],
+        helix['w'][second_step],
+    ]
+    original_boundary = (
+        get_step_matrix(original_step_parameters[0])
+        @ get_step_matrix(original_step_parameters[1])
+    )
+
+    def boundary_constraint(local_w):
+        trial_w = w.copy()
+        trial_w[B] = local_w
+        first_step_cords = trial_w[first_step] + helix['w_eq'][first_step]
+        second_step_cords = trial_w[second_step] + helix['w_eq'][second_step]
+        boundary = get_step_matrix(first_step_cords) @ get_step_matrix(second_step_cords)
+        rotation_delta = boundary[:3, :3] @ original_boundary[:3, :3].T
+        rotation_residual = 0.5 * np.array([
+            rotation_delta[2, 1] - rotation_delta[1, 2],
+            rotation_delta[0, 2] - rotation_delta[2, 0],
+            rotation_delta[1, 0] - rotation_delta[0, 1],
+        ])
+        translation_residual = boundary[:3, 3] - original_boundary[:3, 3]
+        return np.concatenate((translation_residual, rotation_residual))
+
+    constraint = NonlinearConstraint(boundary_constraint, 0, 0)
+    # step_change_bounds = [(-3,3), (-3,3), (-5,5), (-10,10), (-10,10), (-20,20)]
+    # intra_change_bounds = [(-1,1), (-1,1), (-1,1), (-10,10), (-10,10), (-10,10)]
+    # bounds = step_change_bounds + intra_change_bounds + step_change_bounds  # realistic bounds for the optimization variables
+    result = scipy.optimize.minimize(
+        objective,
+        w[B].copy(),
+        method='SLSQP',
+        constraints=constraint,
+        # bounds=bounds,
+        options={'maxiter': 1000, 'ftol': 1e-10},
+    )
+    if not result.success:
+        raise RuntimeError(f"Mutation optimization failed at base pair {bp_index}: {result.message}")
+
+    helix['w'][B] = result.x + helix['w_eq'][B]
+    calculate_wKw(helix)
+
+    return helix
+
+def write_rebuild_file(helix, filename):
+
+    with open(filename + '.txt', 'w') as f:
+        f.write("# Sequence: " + helix['strand_sequences'][0] + "\n")
+        j = 0
+        for i, val in enumerate(helix['w']):
+            if j == 0:
+                f.write(helix['strand_sequences'][0][i//12] + "-" + helix['strand_sequences'][1][i//12] + " ")
+            j +=1
+            if j > 6:
+                f.write(f"{val:.6f} ")
+                if (i + 1) % 12 == 0:
+                    f.write("\n")
+                    j=0
 
 
+K_intra_inter_DNA = {}
+with open(csv_directory / "K_intra_inter_DNA.csv") as Kf:
+    data_raw = csv.reader(Kf)
+    data = [list(row) for row in data_raw]
+    for row in data:
+        hexamer = row[0]
+        values = list(map(float, row[1:67]))
+        if hexamer not in K_intra_inter_DNA:
+            K_intra_inter_DNA[hexamer] = []
+        K_intra_inter_DNA[hexamer].append(values)
 equalibrium_params = load_equalibrium_params()
-stiffs = load_stiffs()
+
+param_types = ['shear', 'stretch', 'stagger', 'buckle', 'propeller', 'opening', 'shift', 'slide', 'rise', 'tilt', 'roll', 'twist']
+
+
 
 if __name__ == "__main__":
-  
-    # # load in helices which were previously found by find_bound_double_strands.py
-    # helices = []
-    # md_results_dir = root_dir / "Offset_energy_calculator" / "MD_Results"
-    # for helix_file in md_results_dir.glob("MD_averaged_parameters_of_helix_*.dat"):
-    #     helix = extract_data(helix_file)
-    #     helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)
-    #     helices.append(helix)
+
+    print("\n\n\nloaded\n\n\n")
+    # load in helices which were previously found by find_bound_double_strands.py
+    helices = []
+    helix = None
+
+    md_results_dir = root_dir / "Offset_energy_calculator" / "MD_Results"
+    for helix_file in md_results_dir.glob("MD_averaged_parameters_of_helix_*.dat"):
+        helix = extract_data(helix_file)
+        calculate_wKw(helix)
 
 
-    # total_energy = calculate_total_energy(helices)
+    helix = get_helix_snippet(helix, 0, -1)
 
-    # with open('energy_log.txt', 'a') as f2:
-    #     f2.write(str(total_energy) + " ")
+    print_helix_text_reprensentation(helix)
+    print("wKw = " + str(calculate_wKw(helix)) + "\n\n\n")
 
-    # helices_temp = [get_helix_snippet(helices[0], 1, -1)]
+
+    # write_rebuild_file(helix, "rebuild_helix_long_initial")
+
+    old_helix = copy.deepcopy(helix)
+    last_energy = calculate_wKw(helix)
+    for iteration in range(3):
+        print("Iteration " + str(iteration+1) + " \n")
+        for i in range(3, len(helix['strand_sequences'][0])-3):
+            helices = []
+            helices.append(mutate_bp(helix, i, 'C'))
+            helices.append(mutate_bp(helix, i, 'G'))
+            helices.append(mutate_bp(helix, i, 'A'))
+            helices.append(mutate_bp(helix, i, 'T'))
+            energy_values = [calculate_wKw(h) for h in helices]
+            helix = copy.deepcopy(helices[energy_values.index(min(energy_values))])
+            print(str(round(calculate_wKw(helix), 2)) + " | " + str(helix['strand_sequences'][0]) + " | " + str(round((helix['w']-helix['w_eq']).min(), 2)) + " " + str(round((helix['w']-helix['w_eq']).max(), 2)))
+            if( calculate_wKw(helix) > last_energy):
+                print("fuck")
+            last_energy = calculate_wKw(helix)
+
+    with open('Mutate/mutation_information.txt', 'w') as f:
+        for i, newRes in enumerate(helix['strand_sequences'][0]):    # print to mutation information file in format <residue index> <new resname>
+            if(newRes != old_helix['strand_sequences'][0][i]):
+                f.write(str(helix['strand_res_inds'][0][i]+1) + " D" + newRes + '\n')
+                f.write(str(helix['strand_res_inds'][1][i]+1) + " D" + complements[newRes] + '\n')
+        print(old_helix['strand_sequences'][0] + ' E='+str(old_helix['wKw'])+ " < old  |  new > "+ helix['strand_sequences'][0] + ' E='+str(helix['wKw'])) 
+
+        print_helix_text_reprensentation(helix)
+
+
+             
+
+
+
+
+
+
+
+
+
+
+
+             
+    # write_rebuild_file(helix, "rebuild_helix_optim_broken")   
+
+
+    # helix = {
+    #     'strand_sequences' : ['GTTCGCCGGCTTTCCCCGTCAAGCTCTAAA', None],
+    #     'strand_res_inds' : None,
+    #     'w' : build_equilibrium_w_vector('GTTCGCCGGCTTTCCCCGTCAAGCTCTAAA'),
+    #     'wKw' : None,
+    #     'w_eq' : None,
+    #     'K' : None
+    # }
+    # helix['strand_sequences'][1] = ''.join([complements[base] for base in helix['strand_sequences'][0]])
+
+
+    # helix['w'][10 + 12 * 11] += 15
+    # helix['w'][10 + 12 * 12] += 15
+    # helix['w'][10 + 12 * 13] += 15
+    # helix['w'][10 + 12 * 14] += 15
+    # helix['w'][10 + 12 * 15] -= 15
+    # helix['w'][10 + 12 * 16] -= 15
+    # helix['w'][10 + 12 * 17] -= 15
+    # helix['w'][10 + 12 * 18] -= 15
+
+    # write_rebuild_file(helix, "rebuild_helix_80")        
+
+    # print()
+
+
+
+# TTCCCTTCCTTTCTCGCCACGTTCGCCGGCTTTCCCCGTCAAGCTCTAAATCGGGGGCTCCCTTTAGGGTTCCGATTTAGTGCTTTACGGCACCTCGACCCCAAAAAACTTGATTTGGGTGATGGTTCACGTAGTGGGCCATCGCCCTGATAGACGGTTTTTCGCCCTTTGACGTTGGAGTCCACGTTCTTTAATAGTGGACTCTTGTTCCAAACTGGAACAACACTCAACCCTATCTCGGGCTATTCTTTTGATTTATAAGGGATTTTGCCGATTTCGGAACCACCATCAAACAGGATTTTCGCCTGCTGGGGCAAACCAGCGTGGACCGCTTGCTGCAACTCTCTCAGGGCCAGGCGGTGAAGGGCAATCAGCTGTTGCCCGTCTCACTGGTGAAAAGAAAAACCACCCTGGCGCCCAATACGCAAACCGCCTCTCCCCGCGCGTTGGCCGATTCATTAATGCAGCTGGCACGACAGGTTTCCCGACTGGAAAGCGGGCAGTGAGCGCAACGCAATTAATGTGAGTTAGCTCACTCATTAGGCACCCCAGGCTTTACACTTTATGCTTCCGGCTCGTATGTTGTGTGGAATTGTGAGCGGATAACAATTTCACACAGGAAACAGCTATGACCATGATTACGAATTCGAGCTCGGTACCCGGGGATCCTCTAGAGTCGACCTGCAGGCATGCAAGCTTGGCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAACTTAATCGCCTTGCAGCACATCCCCCTTTCGCCAGCTGGCGTAATAGCGAAGAGGCCCGCACCGATCGCCCTTCCCAACAGTTGCGCAGCCTGAATGGCGAATGGCGCTTTGCCTGGTTTCCGGCACCAGAAGCGGTGCCGGAAAGCTGGCTGGAGTGCGATCTTCCTGAGGCCGATACTGTCGTCGTCCCCTCAAACTGGCAGATGCACGGTTACGATGCGCCCATCTACACCAACGTGACCTATCCCATTACGGTCAATCCGCCGTTTGTTCCCACGGAGAATCCGACGGGTTGTTACTCGCTCACATTTAATGTTGATGAAAGCTGGCTACAGGAAGGCCAGACGCGAATTATTTTTGATGGCGTTCCTATTGGTTAAAAAATGAGCTGATTTAACAAAAATTTAATGCGAATTTTAACAAAATATTAACGTTTACAATTTAAATATTTGCTTATACAATCTTCCTGTTTTTGGGGCTTTTCTGATTATCAACCGGGGTACATATGATTGACATGCTAGTTTTACGATTACCGTTCATCGATTCTCTTGTTTGCTCCAGACTCTCAGGCAATGACCTGATAGCCTTTGTAGATCTCTCAAAAATAGCTACCCTCTCCGGCATTAATTTATCAGCTAGAACGGTTGAATATCATATTGATGGTGATTTGACTGTCTCCGGCCTTTCTCACCCTTTTGAATCTTTACCTACACATTACTCAGGCATTGCATTTAAAATATATGAGGGTTCTAAAAATTTTTATCCTTGCGTTGAAATAAAGGCTTCTCCCGCAAAAGTATTACAGGGTCATAATGTTTTTGGTACAACCGATTTAGCTTTATGCTCTGAGGCTTTATTGCTTAATTTTGCTAATTCTTTGCCTTGCCTGTATGATTTATTGGATGTTAATGCTACTACTATTAGTAGAATTGATGCCACCTTTTCAGCTCGCGCCCCAAATGAAAATATAGCTAAACAGGTTATTGACCATTTGCGAAATGTATCTAATGGTCAAACTAAATCTACTCGTTCGCAGAATTGGGAATCAACTGTTATATGGAATGAAACTTCCAGACACCGTACTTTAGTTGCATATTTAAAACATGTTGAGCTACAGCATTATATTCAGCAATTAAGCTCTAAGCCATCCGCAAAAATGACCTCTTATCAAAAGGAGCAATTAAAGGTACTCTCTAATCCTGACCTGTTGGAGTTTGCTTCCGGTCTGGTTCGCTTTGAAGCTCGAATTAAAACGCGATATTTGAAGTCTTTCGGGCTTCCTCTTAATCTTTTTGATGCAATCCGCTTTGCTTCTGACTATAATAGTCAGGGTAAAGACCTGATTTTTGATTTATGGTCATTCTCGTTTTCTGAACTGTTTAAAGCATTTGAGGGGGATTCAATGAATATTTATGACGATTCCGCAGTATTGGACGCTATCCAGTCTAAACATTTTACTATTACCCCCTCTGGCAAAACTTCTTTTGCAAAAGCCTCTCGCTATTTTGGTTTTTATCGTCGTCTGGTAAACGAGGGTTATGATAGTGTTGCTCTTACTATGCCTCGTAATTCCTTTTGGCGTTATGTATCTGCATTAGTTGAATGTGGTATTCCTAAATCTCAACTGATGAATCTTTCTACCTGTAATAATGTTGTTCCGTTAGTTCGTTTTATTAACGTAGATTTTTCTTCCCAACGTCCTGACTGGTATAATGAGCCAGTTCTTAAAATCGCATAAGGTAATTCACAATGATTAAAGTTGAAATTAAACCATCTCAAGCCCAATTTACTACTCGTTCTGGTGTTTCTCGTCAGGGCAAGCCTTATTCACTGAATGAGCAGCTTTGTTACGTTGATTTGGGTAATGAATATCCGGTTCTTGTCAAGATTACTCTTGATGAAGGTCAGCCAGCCTATGCGCCTGGTCTGTACACCGTTCATCTGTCCTCTTTCAAAGTTGGTCAGTTCGGTTCCCTTATGATTGACCGTCTGCGCCTCGTTCCGGCTAAGTAACATGGAGCAGGTCGCGGATTTCGACACAATTTATCAGGCGATGATACAAATCTCCGTTGTACTTTGTTTCGCGCTTGGTATAATCGCTGGGGGTCAAAGATGAGTGTTTTAGTGTATTCTTTTGCCTCTTTCGTTTTAGGTTGGTGCCTTCGTAGTGGCATTACGTATTTTACCCGTTTAATGGAAACTTCCTCATGAAAAAGTCTTTAGTCCTCAAAGCCTCTGTAGCCGTTGCTACCCTCGTTCCGATGCTGTCTTTCGCTGCTGAGGGTGACGATCCCGCAAAAGCGGCCTTTAACTCCCTGCAAGCCTCAGCGACCGAATATATCGGTTATGCGTGGGCGATGGTTGTTGTCATTGTCGGCGCAACTATCGGTATCAAGCTGTTTAAGAAATTCACCTCGAAAGCAAGCTGATAAACCGATACAATTAAAGGCTCCTTTTGGAGCCTTTTTTTTGGAGATTTTCAACGTGAAAAAATTATTATTCGCAATTCCTTTAGTTGTTCCTTTCTATTCTCACTCCGCTGAAACTGTTGAAAGTTGTTTAGCAAAATCCCATACAGAAAATTCATTTACTAACGTCTGGAAAGACGACAAAACTTTAGATCGTTACGCTAACTATGAGGGCTGTCTGTGGAATGCTACAGGCGTTGTAGTTTGTACTGGTGACGAAACTCAGTGTTACGGTACATGGGTTCCTATTGGGCTTGCTATCCCTGAAAATGAGGGTGGTGGCTCTGAGGGTGGCGGTTCTGAGGGTGGCGGTTCTGAGGGTGGCGGTACTAAACCTCCTGAGTACGGTGATACACCTATTCCGGGCTATACTTATATCAACCCTCTCGACGGCACTTATCCGCCTGGTACTGAGCAAAACCCCGCTAATCCTAATCCTTCTCTTGAGGAGTCTCAGCCTCTTAATACTTTCATGTTTCAGAATAATAGGTTCCGAAATAGGCAGGGGGCATTAACTGTTTATACGGGCACTGTTACTCAAGGCACTGACCCCGTTAAAACTTATTACCAGTACACTCCTGTATCATCAAAAGCCATGTATGACGCTTACTGGAACGGTAAATTCAGAGACTGCGCTTTCCATTCTGGCTTTAATGAGGATTTATTTGTTTGTGAATATCAAGGCCAATCGTCTGACCTGCCTCAACCTCCTGTCAATGCTGGCGGCGGCTCTGGTGGTGGTTCTGGTGGCGGCTCTGAGGGTGGTGGCTCTGAGGGTGGCGGTTCTGAGGGTGGCGGCTCTGAGGGAGGCGGTTCCGGTGGTGGCTCTGGTTCCGGTGATTTTGATTATGAAAAGATGGCAAACGCTAATAAGGGGGCTATGACCGAAAATGCCGATGAAAACGCGCTACAGTCTGACGCTAAAGGCAAACTTGATTCTGTCGCTACTGATTACGGTGCTGCTATCGATGGTTTCATTGGTGACGTTTCCGGCCTTGCTAATGGTAATGGTGCTACTGGTGATTTTGCTGGCTCTAATTCCCAAATGGCTCAAGTCGGTGACGGTGATAATTCACCTTTAATGAATAATTTCCGTCAATATTTACCTTCCCTCCCTCAATCGGTTGAATGTCGCCCTTTTGTCTTTGGCGCTGGTAAACCATATGAATTTTCTATTGATTGTGACAAAATAAACTTATTCCGTGGTGTCTTTGCGTTTCTTTTATATGTTGCCACCTTTATGTATGTATTTTCTACGTTTGCTAACATACTGCGTAATAAGGAGTCTTAATCATGCCAGTTCTTTTGGGTATTCCGTTATTATTGCGTTTCCTCGGTTTCCTTCTGGTAACTTTGTTCGGCTATCTGCTTACTTTTCTTAAAAAGGGCTTCGGTAAGATAGCTATTGCTATTTCATTGTTTCTTGCTCTTATTATTGGGCTTAACTCAATTCTTGTGGGTTATCTCTCTGATATTAGCGCTCAATTACCCTCTGACTTTGTTCAGGGTGTTCAGTTAATTCTCCCGTCTAATGCGCTTCCCTGTTTTTATGTTATTCTCTCTGTAAAGGCTGCTATTTTCATTTTTGACGTTAAACAAAAAATCGTTTCTTATTTGGATTGGGATAAATAATATGGCTGTTTATTTTGTAACTGGCAAATTAGGCTCTGGAAAGACGCTCGTTAGCGTTGGTAAGATTCAGGATAAAATTGTAGCTGGGTGCAAAATAGCAACTAATCTTGATTTAAGGCTTCAAAACCTCCCGCAAGTCGGGAGGTTCGCTAAAACGCCTCGCGTTCTTAGAATACCGGATAAGCCTTCTATATCTGATTTGCTTGCTATTGGGCGCGGTAATGATTCCTACGATGAAAATAAAAACGGCTTGCTTGTTCTCGATGAGTGCGGTACTTGGTTTAATACCCGTTCTTGGAATGATAAGGAAAGACAGCCGATTATTGATTGGTTTCTACATGCTCGTAAATTAGGATGGGATATTATTTTTCTTGTTCAGGACTTATCTATTGTTGATAAACAGGCGCGTTCTGCATTAGCTGAACATGTTGTTTATTGTCGTCGTCTGGACAGAATTACTTTACCTTTTGTCGGTACTTTATATTCTCTTATTACTGGCTCGAAAATGCCTCTGCCTAAATTACATGTTGGCGTTGTTAAATATGGCGATTCTCAATTAAGCCCTACTGTTGAGCGTTGGCTTTATACTGGTAAGAATTTGTATAACGCATATGATACTAAACAGGCTTTTTCTAGTAATTATGATTCCGGTGTTTATTCTTATTTAACGCCTTATTTATCACACGGTCGGTATTTCAAACCATTAAATTTAGGTCAGAAGATGAAATTAACTAAAATATATTTGAAAAAGTTTTCTCGCGTTCTTTGTCTTGCGATTGGATTTGCATCAGCATTTACATATAGTTATATAACCCAACCTAAGCCGGAGGTTAAAAAGGTAGTCTCTCAGACCTATGATTTTGATAAATTCACTATTGACTCTTCTCAGCGTCTTAATCTAAGCTATCGCTATGTTTTCAAGGATTCTAAGGGAAAATTAATTAATAGCGACGATTTACAGAAGCAAGGTTATTCACTCACATATATTGATTTATGTACTGTTTCCATTAAAAAAGGTAATTCAAATGAAATTGTTAAATGTAATTAATTTTGTTTTCTTGATGTTTGTTTCATCATCTTCTTTTGCTCAGGTAATTGAAATGAATAATTCGCCTCTGCGCGATTTTGTAACTTGGTATTCAAAGCAATCAGGCGAATCCGTTATTGTTTCTCCCGATGTAAAAGGTACTGTTACTGTATATTCATCTGACGTTAAACCTGAAAATCTACGCAATTTCTTTATTTCTGTTTTACGTGCAAATAATTTTGATATGGTAGGTTCTAACCCTTCCATTATTCAGAAGTATAATCCAAACAATCAGGATTATATTGATGAATTGCCATCATCTGATAATCAGGAATATGATGATAATTCCGCTCCTTCTGGTGGTTTCTTTGTTCCGCAAAATGATAATGTTACTCAAACTTTTAAAATTAATAACGTTCGGGCAAAGGATTTAATACGAGTTGTCGAATTGTTTGTAAAGTCTAATACTTCTAAATCCTCAAATGTATTATCTATTGACGGCTCTAATCTATTAGTTGTTAGTGCTCCTAAAGATATTTTAGATAACCTTCCTCAATTCCTTTCAACTGTTGATTTGCCAACTGACCAGATATTGATTGAGGGTTTGATATTTGAGGTTCAGCAAGGTGATGCTTTAGATTTTTCATTTGCTGCTGGCTCTCAGCGTGGCACTGTTGCAGGCGGTGTTAATACTGACCGCCTCACCTCTGTTTTATCTTCTGCTGGTGGTTCGTTCGGTATTTTTAATGGCGATGTTTTAGGGCTATCAGTTCGCGCATTAAAGACTAATAGCCATTCAAAAATATTGTCTGTGCCACGTATTCTTACGCTTTCAGGTCAGAAGGGTTCTATCTCTGTTGGCCAGAATGTCCCTTTTATTACTGGTCGTGTGACTGGTGAATCTGCCAATGTAAATAATCCATTTCAGACGATTGAGCGTCAAAATGTAGGTATTTCCATGAGCGTTTTTCCTGTTGCAATGGCTGGCGGTAATATTGTTCTGGATATTACCAGCAAGGCCGATAGTTTGAGTTCTTCTACTCAGGCAAGTGATGTTATTACTAATCAAAGAAGTATTGCTACAACGGTTAATTTGCGTGATGGACAGACTCTTTTACTCGGTGGCCTCACTGATTATAAAAACAC
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+    # helices_temp = [get_helix_snippet(helices[4], 7, -6)]
     # total_energy = calculate_total_energy(helices_temp)
-    
-    # with open('energy_log.txt', 'a') as f2:     # emergy_log line structure: <total energy of whole helix> <total energy of helix without terminal base pairs> <total energy of central hexamer> <total energy of central hexamer with alternate sequence with minimal energy (unsimulated)>
-    #     f2.write(str(total_energy) + " ")
 
-
-    # helix_snip = [get_helix_snippet(helices[0], 5, -5)]
-
-    # for helix in helix_snip:
-    #     helix['energys'], helix['stiffs'], helix['eq_params'], helix['differences'] = calculate_displacement_energy(helix)
-
-
-    # find_energy_minimum_sequence( helix_snip,helices )
-
-    # write_tcl_representation_script(helices)
-
-    construct_stiffness_matrix("ATCGGTAGCTGAGC")
-
+    # print_helix_text_reprensentation(helices_temp[0])
+    # print(total_energy)
 
 
